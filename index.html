@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <!-- Viewport setting for proper mobile scaling -->
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0, viewport-fit=cover">
+    <title>Loot of the Void</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700;900&family=Lato:wght@300;400;700&family=Crimson+Pro:ital,wght@0,400;0,600;1,400&display=swap');
+      
+      :root {
+        --color-void-bg: #050505;
+        --color-panel-bg: #0c0a09;
+        --color-border-gold: #78350f;
+        --color-border-stone: #44403c;
+      }
+
+      body {
+        background-color: var(--color-void-bg);
+        background-image: radial-gradient(circle at center, #1c1917 0%, #000000 100%);
+        color: #a8a29e;
+        font-family: 'Lato', sans-serif;
+        overflow: hidden; /* Prevent window scrolling */
+        height: 100vh; /* Fallback */
+        height: 100dvh; /* Mobile browser friendly */
+        width: 100vw;
+        width: 100dvw;
+        display: flex;
+        align-items: stretch;
+        justify-content: stretch;
+        margin: 0;
+        padding: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px) env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px);
+        box-sizing: border-box;
+        touch-action: manipulation; /* Improves touch response */
+        -webkit-tap-highlight-color: transparent;
+      }
+
+      /* --- Global Component Styles (Refactored) --- */
+      
+      .slot, .ventana, .button-base {
+        box-sizing: border-box;
+        transition: all 0.2s ease-in-out;
+      }
+
+      /* Slots */
+      .slot {
+        position: relative;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        user-select: none;
+      }
+
+      /* Modals/Windows */
+      .ventana {
+        box-shadow: 0 0 0 1px rgba(0,0,0,0.5), 0 20px 60px rgba(0,0,0,0.9);
+      }
+
+      /* Base styles for images and emojis to ensure they don't overflow */
+      img, .emoji {
+        max-width: 100%;
+        height: auto;
+        object-fit: contain;
+        margin: 0 auto;
+        display: block;
+      }
+
+      /* Base button touch optimization without overriding Tailwind sizing */
+      button {
+        touch-action: manipulation;
+      }
+
+      /* Container Principal: always bound to viewport height */
+      .container-principal {
+        box-sizing: border-box;
+        max-height: 100dvh;
+        overflow: hidden;
+      }
+
+      /* Mobile Portrait Breakpoint (Max width 639px) */
+      @media (max-width: 639px) {
+        .container-principal {
+          display: flex;
+          flex-direction: column;
+          padding: 0; 
+          gap: 0;
+        }
+      }
+      
+      /* --- Typography --- */
+
+      h1, h2, h3, h4, h5, h6, .diablo-font {
+        font-family: 'Cinzel', serif;
+      }
+
+      .serif-font {
+        font-family: 'Crimson Pro', serif;
+      }
+
+      /* -- Animations -- */
+      @keyframes floatUp {
+        0% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+        100% { transform: translate(-50%, -150%) scale(1.2); opacity: 0; }
+      }
+      
+      .animate-float-up {
+        animation: floatUp 1s ease-out forwards;
+      }
+
+      @keyframes fadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
+      }
+      
+      .fade-in {
+        animation: fadeIn 0.3s ease-out forwards;
+      }
+
+      @keyframes zoomIn {
+        from { transform: scale(0.95); opacity: 0; }
+        to { transform: scale(1); opacity: 1; }
+      }
+
+      .zoom-in {
+        animation: zoomIn 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+      }
+
+      /* Combat Sprites Battle Animations */
+      @keyframes monsterBreathe {
+        0%, 100% {
+          transform: translateY(0px) scale(1, 1);
+        }
+        50% {
+          transform: translateY(-6px) scale(1.02, 0.98);
+        }
+      }
+
+      .animate-monster-breathe {
+        animation: monsterBreathe 2.4s ease-in-out infinite;
+        transform-origin: bottom center;
+      }
+
+      .animate-monster-breathe-1 {
+        animation: monsterBreathe 2.6s ease-in-out 0.3s infinite;
+        transform-origin: bottom center;
+      }
+
+      .animate-monster-breathe-2 {
+        animation: monsterBreathe 2.9s ease-in-out 0.7s infinite;
+        transform-origin: bottom center;
+      }
+
+      @keyframes heroBreathe {
+        0%, 100% {
+          transform: translateY(0px) scale(1, 1);
+        }
+        50% {
+          transform: translateY(-4px) scale(1.01, 0.99);
+        }
+      }
+
+      .animate-hero-breathe {
+        animation: heroBreathe 2.2s ease-in-out infinite;
+        transform-origin: bottom center;
+      }
+
+      @keyframes hitShake {
+        0%, 100% { transform: translate(0, 0); filter: brightness(1); }
+        20% { transform: translate(6px, -3px); filter: brightness(2) drop-shadow(0 0 12px rgba(239, 68, 68, 0.9)); }
+        40% { transform: translate(-6px, 3px); filter: brightness(1.7) drop-shadow(0 0 8px rgba(239, 68, 68, 0.7)); }
+        60% { transform: translate(4px, -2px); filter: brightness(1.3); }
+        80% { transform: translate(-2px, 0); filter: brightness(1.1); }
+      }
+
+      .animate-hit-shake {
+        animation: hitShake 0.45s ease-in-out;
+      }
+
+      @keyframes shadowPulse {
+        0%, 100% { transform: scale(1); opacity: 0.55; }
+        50% { transform: scale(0.85); opacity: 0.35; }
+      }
+
+      .animate-shadow-pulse {
+        animation: shadowPulse 2.4s ease-in-out infinite;
+      }
+
+      /* Screen Shake Feedback */
+      @keyframes screenShakeHeavy {
+        0% { transform: translate(0, 0) rotate(0deg); }
+        15% { transform: translate(-7px, 5px) rotate(-0.6deg); }
+        30% { transform: translate(7px, -5px) rotate(0.6deg); }
+        45% { transform: translate(-5px, 3px) rotate(-0.3deg); }
+        60% { transform: translate(4px, -3px) rotate(0.2deg); }
+        75% { transform: translate(-2px, 1px) rotate(0deg); }
+        90% { transform: translate(1px, -1px) rotate(0deg); }
+        100% { transform: translate(0, 0) rotate(0deg); }
+      }
+
+      @keyframes screenShakeLight {
+        0% { transform: translate(0, 0); }
+        25% { transform: translate(-3px, 2px); }
+        50% { transform: translate(3px, -2px); }
+        75% { transform: translate(-1px, 1px); }
+        100% { transform: translate(0, 0); }
+      }
+
+      .animate-screen-shake-heavy {
+        animation: screenShakeHeavy 0.35s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
+      }
+
+      .animate-screen-shake-light {
+        animation: screenShakeLight 0.2s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
+      }
+
+      /* -- Textures -- */
+      .bg-texture-noise {
+        background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.05'/%3E%3C/svg%3E");
+      }
+
+      .bg-texture-leather {
+        background-color: #1c1917;
+        background-image: url("https://www.transparenttextures.com/patterns/dark-leather.png");
+      }
+      
+      .bg-texture-stone {
+        background-color: #0c0a09;
+        background-image: url("https://www.transparenttextures.com/patterns/concrete-wall.png");
+      }
+      
+      /* -- UI Elements -- */
+      .panel-border {
+        border: 1px solid #44403c;
+        box-shadow: 
+          inset 0 0 20px rgba(0,0,0,0.8),
+          0 0 0 1px rgba(0,0,0,0.5),
+          0 4px 6px rgba(0,0,0,0.5);
+      }
+
+      .text-gold-gradient {
+        background: linear-gradient(180deg, #fcd34d 0%, #b45309 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+      }
+
+      .inner-shadow {
+        box-shadow: inset 0 2px 10px rgba(0,0,0,0.8);
+      }
+
+      /* Custom scrollbar */
+      ::-webkit-scrollbar {
+        width: 6px;
+        height: 6px;
+      }
+      ::-webkit-scrollbar-track {
+        background: #0c0a09;
+        border-left: 1px solid #292524;
+      }
+      ::-webkit-scrollbar-thumb {
+        background: #44403c; 
+        border-radius: 2px;
+      }
+      ::-webkit-scrollbar-thumb:hover {
+        background: #78716c; 
+      }
+
+      /* Selection */
+      ::selection {
+        background: #b45309;
+        color: #fff;
+      }
+    </style>
+    <script type="module" crossorigin src="./assets/index-Dj_ITs7q.js"></script>
+  </head>
+  <body>
+    <div id="root" style="width: 100%; height: 100%;"></div>
+  </body>
+</html>
