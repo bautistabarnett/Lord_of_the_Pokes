@@ -114,11 +114,14 @@ const InventorySlot: React.FC<InventorySlotProps> = ({
              </div>
            )}
 
-           {/* Unidentified Badge */}
+           {/* Unidentified Badge & Veil FX */}
            {!item.isIdentified && (
-             <div className="absolute top-0.5 right-0.5 w-3 h-3 flex items-center justify-center bg-red-950 border border-red-700 rounded-full z-20 shadow-sm">
-               <span className="text-red-500 text-[9px] font-bold leading-none animate-pulse">?</span>
-             </div>
+             <>
+               <div className="absolute inset-0 bg-red-950/25 pointer-events-none"></div>
+               <div className="absolute top-0.5 right-0.5 w-3.5 h-3.5 flex items-center justify-center bg-gradient-to-b from-red-900 to-black border border-red-500 rounded-full z-20 shadow-[0_0_6px_rgba(239,68,68,0.8)]">
+                 <span className="text-red-400 text-[9px] font-bold leading-none animate-pulse">?</span>
+               </div>
+             </>
            )}
            
            {/* Visualize Mode Overlay */}

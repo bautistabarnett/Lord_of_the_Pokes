@@ -38,9 +38,9 @@ export const BALANCE = {
   COSTS: {
     identify: {
       [Rarity.COMMON]: 10,
-      [Rarity.MAGIC]: 50,
-      [Rarity.RARE]: 150,
-      [Rarity.UNIQUE]: 500,
+      [Rarity.MAGIC]: 30,
+      [Rarity.RARE]: 100,
+      [Rarity.UNIQUE]: 300,
     }
   },
 
@@ -105,4 +105,15 @@ export const BALANCE = {
         [MonsterRarity.UNIQUE]:   { statMult: 5.0, xpMult: 25.0, goldMult: 15.0, maledictCount: 5, color: 'text-amber-500', glow: 'shadow-amber-500' },
     }
   }
+};
+
+/**
+ * Calculates dynamic identification cost scaled gently with item level,
+ * ensuring early game drops are affordable while scaling smoothly into high tiers.
+ */
+export const getIdentifyCost = (item: Item): number => {
+  const baseCosts = BALANCE.COSTS.identify;
+  const base = baseCosts[item.rarity] || 50;
+  const lvlMult = Math.max(0.4, Math.min(1.5, 0.4 + (item.level || 1) * 0.05));
+  return Math.max(5, Math.round(base * lvlMult));
 };

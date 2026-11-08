@@ -3,7 +3,7 @@ import { Item, ItemSlot, PlayerStats, EquipmentMap, LogEntry, Rarity, Monster, B
 import { generateLoot, calculatePlayerStats, generateMonster, generatePassiveSkill, calculateItemValue, generateEncounter } from './services/gameLogic';
 import { identifyItemWithGemini, generateEncounterDescription, generatePassiveLore, generateCombatNarrative, generateImage } from './services/geminiService';
 import { RARITY_COLORS, SLOT_ICONS, MAX_INVENTORY_SIZE, INITIAL_WORLD_MAP, EXPLORATION_EVENTS, PASSIVE_SET_BONUSES, COMPOSITE_SYNERGIES, PASSIVE_SKILLS_POOL } from './constants';
-import { BALANCE } from './services/gameBalance';
+import { BALANCE, getIdentifyCost } from './services/gameBalance';
 import { storageService } from './services/storageService';
 import { BaseModal } from './components/BaseModal';
 import InventorySlot from './components/InventorySlot';
@@ -740,32 +740,88 @@ export default function App() {
 
   }, [battleState.isFighting, isUIBlocked, stats, mapNodes, currentAreaId, areaProgress, worldDifficulty, level, combatsSinceLastEvent, battleActions, triggerRandomEvent]);
 
-  const handleIdentifyAll = useCallback(async () => {
-      const unID = inventory.filter(i => i && !i.isIdentified) as Item[];
-      if (!unID.length) return;
-      const cost = unID.reduce((s, i) => s + BALANCE.COSTS.identify[i.rarity], 0);
-      if (gold < cost) { addLog("Not enough gold", 'system'); return; }
-      setIsIdentifying(true);
-      const nInv = [...inventory];
-      for (let i=0; i<nInv.length; i++) {
-          const it = nInv[i];
-          if (it && !it.isIdentified) {
-              if (it.trueName) {
-                  nInv[i] = { ...it, name: it.trueName, isIdentified: true };
-              } else {
-                  try { const res = await identifyItemWithGemini(it); nInv[i] = { ...it, ...res, isIdentified: true }; }
-                  catch { nInv[i] = { ...it, isIdentified: true, name: it.name.replace('Unidentified ', '') }; }
-              }
+  const handleIdentifySingle = useCallback((item: Item, idx: number) => {
+      if (item.isIdentified) return;
+      const cost = getIdentifyCost(item);
+      if (gold < cost) {
+          addLog(`Need ${cost}g to identify ${item.name}.`, 'system');
+          return;
+      }
+      const identifiedName = item.trueName || item.name.replace('Unidentified ', '');
+      const updatedItem: Item = { ...item, name: identifiedName, isIdentified: true };
+      setInventory(prev => {
+          const next = [...prev];
+          next[idx] = updatedItem;
+          return next;
+      });
+      setGold(p => p - cost);
+      setHoverItem(updatedItem);
+      const procDesc = updatedItem.proc ? ` [${updatedItem.proc.description}]` : '';
+      addLog(`✨ Identified: ${identifiedName}! (-${cost}g)${procDesc}`, 'loot');
+  }, [gold, addLog]);
+
+  const handleIdentifyAll = useCallback(() => {
+      const unIDIndices: number[] = [];
+      inventory.forEach((item, idx) => {
+          if (item && !item.isIdentified) unIDIndices.push(idx);
+      });
+      if (unIDIndices.length === 0) return;
+
+      const rarityPriority: Record<Rarity, number> = {
+          [Rarity.UNIQUE]: 4,
+          [Rarity.RARE]: 3,
+          [Rarity.MAGIC]: 2,
+          [Rarity.COMMON]: 1,
+      };
+
+      // Prioritize highest rarity first (Unique > Rare > Magic > Common)
+      unIDIndices.sort((a, b) => {
+          const itemA = inventory[a]!;
+          const itemB = inventory[b]!;
+          return (rarityPriority[itemB.rarity] || 0) - (rarityPriority[itemA.rarity] || 0);
+      });
+
+      let currentGold = gold;
+      let totalSpent = 0;
+      let identifiedCount = 0;
+      const nextInv = [...inventory];
+
+      for (const idx of unIDIndices) {
+          const it = nextInv[idx];
+          if (!it || it.isIdentified) continue;
+          const cost = getIdentifyCost(it);
+          if (currentGold >= cost) {
+              currentGold -= cost;
+              totalSpent += cost;
+              identifiedCount++;
+              const identifiedName = it.trueName || it.name.replace('Unidentified ', '');
+              nextInv[idx] = { ...it, name: identifiedName, isIdentified: true };
           }
       }
-      setInventory(nInv); setGold(p => p - cost); setIsIdentifying(false);
+
+      if (identifiedCount > 0) {
+          setInventory(nextInv);
+          setGold(currentGold);
+          const remaining = unIDIndices.length - identifiedCount;
+          if (remaining > 0) {
+              addLog(`✨ Identified ${identifiedCount} items for ${totalSpent}g! (${remaining} remaining due to insufficient gold)`, 'loot');
+          } else {
+              addLog(`✨ All ${identifiedCount} items identified for ${totalSpent}g!`, 'loot');
+          }
+      } else {
+          const cheapestCost = Math.min(...unIDIndices.map(i => getIdentifyCost(inventory[i]!)));
+          addLog(`Not enough gold to identify items (minimum ${cheapestCost}g needed).`, 'system');
+      }
   }, [inventory, gold, addLog]);
 
   const handleEquip = useCallback((item: Item, idx: number) => { 
       if (isVisualizeMode) { setVisualizingItem(item); return; } 
-      if (!item.isIdentified) return; 
+      if (!item.isIdentified) {
+          handleIdentifySingle(item, idx);
+          return;
+      } 
       moveItemToEquipment(item, 'inventory', idx, item.type); 
-  }, [isVisualizeMode, moveItemToEquipment]);
+  }, [isVisualizeMode, moveItemToEquipment, handleIdentifySingle]);
 
   const handleUnequip = useCallback((slot: ItemSlot) => { 
       const i = equipment[slot]; 
@@ -803,28 +859,14 @@ export default function App() {
           moveItemToSell(item, 'inventory', idx);
       } else if (source === 'inventory' && typeof idx === 'number') {
           if (!item.isIdentified) {
-              const cost = BALANCE.COSTS.identify[item.rarity] || 25;
-              if (gold < cost) {
-                  addLog(`Need ${cost}g to identify ${item.name}.`, 'system');
-                  return;
-              }
-              const identifiedName = item.trueName || item.name.replace('Unidentified ', '');
-              const updatedItem: Item = { ...item, name: identifiedName, isIdentified: true };
-              setInventory(prev => {
-                  const next = [...prev];
-                  next[idx] = updatedItem;
-                  return next;
-              });
-              setGold(p => p - cost);
-              setHoverItem(updatedItem);
-              addLog(`Identified: ${identifiedName}! (-${cost}g)`, 'loot');
+              handleIdentifySingle(item, idx);
               return;
           }
           handleEquip(item, idx);
       } else if (source === 'equipment' && typeof idx === 'string') {
           handleUnequip(idx as ItemSlot);
       }
-  }, [activeTab, merchantMode, moveItemToSell, handleEquip, handleUnequip, gold, addLog]);
+  }, [activeTab, merchantMode, moveItemToSell, handleIdentifySingle, handleEquip, handleUnequip]);
 
   const handleSaveVisual = useCallback((url: string) => { 
       if (isVisualizingHero) { 
@@ -869,7 +911,9 @@ export default function App() {
       return { text: "Hell", color: "text-red-600" };
   };
   const area = mapNodes.find(n => n.id === currentAreaId)!;
-  const unIDCount = inventory.filter(i => i && !i.isIdentified).length;
+  const unIDItems = useMemo(() => inventory.filter((i): i is Item => !!i && !i.isIdentified), [inventory]);
+  const unIDCount = unIDItems.length;
+  const totalIdentifyCost = useMemo(() => unIDItems.reduce((s, i) => s + getIdentifyCost(i), 0), [unIDItems]);
   const sellVal = sellStaging.reduce((s, i) => s + calculateItemValue(i), 0);
   
   const renderEquipSlot = (slot: ItemSlot) => {
@@ -1146,7 +1190,25 @@ export default function App() {
                <h2 className="text-stone-300 diablo-font text-sm lg:text-xl truncate">Inventory</h2>
                <div className="flex gap-1 shrink-0 items-center">
                     <button onClick={() => setIsVisualizeMode(!isVisualizeMode)} className={`w-7 h-7 lg:w-9 lg:h-9 rounded flex items-center justify-center border transition-all text-xs lg:text-sm ${isVisualizeMode ? 'bg-purple-900/50 border-purple-500 text-purple-300' : 'bg-stone-900 border-stone-700 text-stone-500 hover:text-stone-300'}`}>👁️</button>
-                    <button onClick={handleIdentifyAll} disabled={unIDCount === 0} className="h-7 lg:h-9 px-2 lg:px-3 text-[10px] lg:text-xs bg-stone-900 border border-stone-700 text-amber-500 rounded hover:bg-stone-800 disabled:opacity-30 uppercase font-bold">Identify</button>
+                    <button 
+                        onClick={handleIdentifyAll} 
+                        disabled={unIDCount === 0} 
+                        className={`h-7 lg:h-9 px-2 lg:px-3 text-[10px] lg:text-xs rounded uppercase font-bold border transition-all flex items-center gap-1 shrink-0 ${
+                            unIDCount === 0 
+                                ? 'bg-stone-900/60 border-stone-800 text-stone-600 cursor-not-allowed opacity-40' 
+                                : gold >= totalIdentifyCost
+                                    ? 'bg-amber-950/50 border-amber-500/70 text-amber-400 hover:bg-amber-900/60 shadow-[0_0_12px_rgba(217,119,6,0.35)]'
+                                    : 'bg-stone-900 border-stone-700 text-amber-500 hover:bg-stone-800'
+                        }`}
+                        title={unIDCount > 0 ? `Identify ${unIDCount} items (${totalIdentifyCost}g)` : 'No unidentified items'}
+                    >
+                        <span>📜 Identify</span>
+                        {unIDCount > 0 && (
+                            <span className="px-1 py-0.5 bg-amber-500/20 text-amber-300 rounded text-[9px] font-mono border border-amber-500/40 leading-none">
+                                {unIDCount}
+                            </span>
+                        )}
+                    </button>
                </div>
            </div>
 

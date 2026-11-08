@@ -3,6 +3,7 @@ import React, { useLayoutEffect, useRef, useState, useMemo } from 'react';
 import { Item, ItemStat, StatType } from '../types';
 import { RARITY_COLORS } from '../constants';
 import GameIcon from './GameIcon';
+import { getIdentifyCost } from '../services/gameBalance';
 
 interface TooltipProps {
   item: Item;
@@ -140,33 +141,46 @@ const ItemCard = ({
 
       {/* Content */}
       <div className="p-2.5 lg:p-4 space-y-2 lg:space-y-3 relative">
-        <div className="space-y-0.5 lg:space-y-1">
-          {sortedStats.map((stat, idx) => (
-            <div key={idx} className="flex justify-between items-center text-stone-300 font-serif text-xs lg:text-[15px]">
-              <span className="text-stone-400">{stat.type}</span>
-              <div className="flex items-center">
-                  {/* Show diff calculation only on the inspecting card */}
-                  {!isEquipped && comparedItem && getStatDiff(stat, comparedItem)}
-                  
-                  <span className={`font-bold ml-2 ${
-                      stat.type === 'Damage' ? 'text-red-400' : 
-                      stat.type === 'Armor' ? 'text-stone-200' :
-                      stat.type === 'Magic Find' ? 'text-yellow-400' :
-                      'text-blue-200'
-                  }`}>+{stat.value}{stat.type.includes('Chance') || stat.type.includes('Steal') || stat.type === 'Attack Speed' || stat.type === 'Thorns' ? '%' : ''}</span>
-              </div>
+        {!item.isIdentified ? (
+          <div className="py-2.5 px-2 text-center space-y-2 bg-black/40 rounded border border-red-950/40">
+            <div className="text-amber-400 diablo-font text-xs lg:text-sm tracking-wider flex items-center justify-center gap-1.5">
+              <span className="text-amber-500 animate-pulse">✦</span>
+              <span>Veiled in Shadow</span>
+              <span className="text-amber-500 animate-pulse">✦</span>
             </div>
-          ))}
-          
-          {sortedStats.length === 0 && (
-              <div className="text-center text-stone-600 italic text-xs py-1">No stats</div>
-          )}
-        </div>
-
-        {!item.isIdentified && (
-          <div className="text-red-500 italic text-[11px] lg:text-xs border-t border-red-900/30 pt-1.5 lg:pt-2 text-center">
-            Unidentified Item<br/>
-            <span className="text-stone-500 text-[10px]">Right-click to identify</span>
+            <p className="text-[11px] lg:text-xs text-stone-400 italic font-serif leading-snug">
+              Ancient runes shroud this artifact's enchantments and true powers.
+            </p>
+            <div className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-amber-950/50 border border-amber-600/50 rounded text-[11px] lg:text-xs text-amber-300 font-sans font-bold shadow-inner">
+              <span>Identification Cost:</span>
+              <span className="text-amber-400 font-mono text-xs lg:text-sm">{getIdentifyCost(item)}g</span>
+            </div>
+            <div className="text-[10px] text-stone-400 uppercase tracking-wider font-semibold">
+              Click, Tap or Right-Click to identify
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-0.5 lg:space-y-1">
+            {sortedStats.map((stat, idx) => (
+              <div key={idx} className="flex justify-between items-center text-stone-300 font-serif text-xs lg:text-[15px]">
+                <span className="text-stone-400">{stat.type}</span>
+                <div className="flex items-center">
+                    {/* Show diff calculation only on the inspecting card */}
+                    {!isEquipped && comparedItem && getStatDiff(stat, comparedItem)}
+                    
+                    <span className={`font-bold ml-2 ${
+                        stat.type === 'Damage' ? 'text-red-400' : 
+                        stat.type === 'Armor' ? 'text-stone-200' :
+                        stat.type === 'Magic Find' ? 'text-yellow-400' :
+                        'text-blue-200'
+                    }`}>+{stat.value}{stat.type.includes('Chance') || stat.type.includes('Steal') || stat.type === 'Attack Speed' || stat.type === 'Thorns' ? '%' : ''}</span>
+                </div>
+              </div>
+            ))}
+            
+            {sortedStats.length === 0 && (
+                <div className="text-center text-stone-600 italic text-xs py-1">No stats</div>
+            )}
           </div>
         )}
 

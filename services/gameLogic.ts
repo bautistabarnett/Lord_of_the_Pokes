@@ -127,7 +127,7 @@ export const generateLoot = (level: number, difficulty: number = 1, magicFind: n
 
   let fullName = catalogEntry.name;
   let identified = true;
-  if (rarity === Rarity.UNIQUE) {
+  if (rarity === Rarity.UNIQUE || (rarity === Rarity.RARE && Math.random() < 0.6)) {
     fullName = `Unidentified ${catalogEntry.name}`;
     identified = false;
   }
