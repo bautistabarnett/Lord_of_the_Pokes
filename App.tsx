@@ -59,6 +59,7 @@ export default function App() {
   const [mapNodes, setMapNodes] = useState<MapNode[]>(INITIAL_WORLD_MAP);
   const [currentAreaId, setCurrentAreaId] = useState<string>('town');
   const [areaProgress, setAreaProgress] = useState<number>(0); 
+  const [combatsSinceLastEvent, setCombatsSinceLastEvent] = useState<number>(3); // Requires at least 3 combats between exploration events
   const [isNight, setIsNight] = useState<boolean>(false);
   
   const [showMapModal, setShowMapModal] = useState(false);
@@ -382,6 +383,8 @@ export default function App() {
          addLog(`Slain ${monsters[0].name}! +${totalXp} XP`, 'combat');
      }
      
+     setCombatsSinceLastEvent(prev => prev + 1);
+     
      // Correct Aura Decrement Logic
      setActiveEffects(prev => {
          const next: ActiveEffect[] = [];
@@ -447,6 +450,7 @@ export default function App() {
       // Gentle penalty: 5% gold loss, no XP loss, reset HP to 50%
       setGold(p => Math.floor(p * 0.95));
       setPlayerCurrentHp(Math.max(10, Math.floor(stats.maxHp * 0.5)));
+      setCombatsSinceLastEvent(prev => prev + 1);
 
       setActiveEffects(prev => {
          const next: ActiveEffect[] = [];
@@ -639,6 +643,9 @@ export default function App() {
     const event = EXPLORATION_EVENTS[Math.floor(Math.random() * EXPLORATION_EVENTS.length)];
     setCurrentEvent(event);
     
+    // Exploration events also uncover the area (+5% progress toward boss, max 95%)
+    setAreaProgress(p => Math.min(95, p + 5));
+
     if (event.grantSkillRarity) {
         // Handle skill reward event
         const skillDrop = generatePassiveSkill(passiveSkills, { minRarity: event.grantSkillRarity });
@@ -663,16 +670,16 @@ export default function App() {
         if (n >= level * 100) handleLevelUp(n - level * 100); else setXp(n); 
     }
     
-    // Improved Aura Stacking Logic
+    // Improved Aura Stacking Logic with cap of 10 turns
     if (event.effect.statType) { 
         const effectName = event.title;
         setActiveEffects(prev => {
             // Check if this effect already exists
             const existing = prev.find(e => e.name === effectName);
             if (existing) {
-                // Stack duration
+                // Stack duration up to 10
                 addLog(`${effectName} duration extended!`, 'event');
-                return prev.map(e => e.name === effectName ? { ...e, duration: e.duration + (event.effect.duration || 0) } : e);
+                return prev.map(e => e.name === effectName ? { ...e, duration: Math.min(10, e.duration + (event.effect.duration || 0)) } : e);
             }
             // Add new effect
             return [...prev, { 
@@ -694,7 +701,15 @@ export default function App() {
     setGroundItems([]);
     const area = mapNodes.find(n => n.id === currentAreaId)!;
     const isBoss = areaProgress >= 100 && !area.isCleared;
-    if (!isBoss && Math.random() < 0.20) { triggerRandomEvent(); return; }
+
+    // Encounter pacing: Non-combat exploration events require at least 3 combats since the last event
+    // and have a balanced 12% probability (guaranteeing consecutive event streaks never replace combat).
+    const canTriggerEvent = !isBoss && combatsSinceLastEvent >= 3 && Math.random() < 0.12;
+    if (canTriggerEvent) { 
+        setCombatsSinceLastEvent(0);
+        triggerRandomEvent(); 
+        return; 
+    }
     
     const diff = isBoss ? worldDifficulty * 1.5 : worldDifficulty;
     
@@ -723,7 +738,7 @@ export default function App() {
         if (url) battleActions.updateMonsterImage(url);
     });
 
-  }, [battleState.isFighting, isUIBlocked, stats, mapNodes, currentAreaId, areaProgress, worldDifficulty, level, battleActions, triggerRandomEvent]);
+  }, [battleState.isFighting, isUIBlocked, stats, mapNodes, currentAreaId, areaProgress, worldDifficulty, level, combatsSinceLastEvent, battleActions, triggerRandomEvent]);
 
   const handleIdentifyAll = useCallback(async () => {
       const unID = inventory.filter(i => i && !i.isIdentified) as Item[];
