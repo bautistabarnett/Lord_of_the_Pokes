@@ -1,0 +1,5 @@
+{
+  "name": "Loot of the Dungeon",
+  "description": "A Diablo-inspired loot game focusing on equipment management, RNG stats, and AI-generated legendary item lore.",
+  "requestFramePermissions": []
+}
