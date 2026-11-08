@@ -358,6 +358,8 @@ export const calculatePlayerStats = (
     dodgeChance: BALANCE.COMBAT.baseDodgeChance,
     attackSpeed: 0,
     thorns: 0,
+    spellPower: 0,
+    healthRegen: 1,
     level: level,
     xp: 0, xpToNextLevel: 0, gold: 0, maxHp: 100,
     statPoints: availableStatPoints,
@@ -465,14 +467,28 @@ export const calculatePlayerStats = (
     }
   });
 
-  currentStats.damage += Math.floor(currentStats.strength * 0.5);
-  currentStats.armor += Math.floor(currentStats.dexterity * 0.5);
-  currentStats.dodgeChance += (currentStats.dexterity * 0.2); 
-  currentStats.critChance += (currentStats.intelligence * 0.2);
+  // Phase 1: Harmonized Attribute Scaling
+  // STR: Multiplies base equipment damage (+1.5% per point) + flat baseline
+  const strMultiplier = 1 + (currentStats.strength * 0.015);
+  const baseEquipDamage = currentStats.damage;
+  currentStats.damage = Math.floor(baseEquipDamage * strMultiplier) + Math.floor(currentStats.strength * 0.25);
+
+  // Armor: Shared between Strength (heavy physique) and Dexterity (light deflection)
+  currentStats.armor += Math.floor(currentStats.strength * 0.3) + Math.floor(currentStats.dexterity * 0.2);
+
+  // DEX: Evasion & Initiative driver (max 65% dodge cap)
+  currentStats.dodgeChance += (currentStats.dexterity * 0.15); 
+
+  // INT: Critical focus + Spell & Proc Power (+1.5% per point)
+  currentStats.critChance += (currentStats.intelligence * 0.1);
+  currentStats.spellPower = Math.round(currentStats.intelligence * 1.5);
+
+  // VIT: Max Health (+8 per point) + Turn-based Health Regeneration
   currentStats.maxHp = 100 + (currentStats.vitality * 8) + (level * perLevel.hp);
+  currentStats.healthRegen = Math.max(1, Math.floor(currentStats.vitality * 0.15));
   
   currentStats.critChance = Math.min(100, parseFloat(currentStats.critChance.toFixed(1)));
-  currentStats.dodgeChance = Math.min(75, parseFloat(currentStats.dodgeChance.toFixed(1)));
+  currentStats.dodgeChance = Math.min(65, parseFloat(currentStats.dodgeChance.toFixed(1)));
 
   return currentStats;
 };

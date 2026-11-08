@@ -65,12 +65,13 @@ export const BALANCE = {
       [CombatStance.BALANCED]: { damage: 1.0, mitigation: 1.0 },
     },
 
-    // Turn Logic
+    // Turn Logic (Smooth continuous turns)
     calculateTurns: (playerAgi: number, enemyAgi: number) => {
       const pAgi = Math.max(1, playerAgi);
       const eAgi = Math.max(1, enemyAgi);
-      const playerAttacks = Math.max(1, Math.round(pAgi / eAgi));
-      const enemyAttacks = Math.max(1, Math.round(eAgi / pAgi));
+      const ratio = pAgi / eAgi;
+      const playerAttacks = ratio >= 1 ? Math.min(3, Math.max(1, Math.round(ratio))) : 1;
+      const enemyAttacks = ratio < 1 ? Math.min(3, Math.max(1, Math.round(1 / ratio))) : 1;
       return { playerAttacks, enemyAttacks, playerGoesFirst: pAgi >= eAgi };
     }
   },

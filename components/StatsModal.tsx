@@ -24,19 +24,22 @@ const StatsModal: React.FC<StatsModalProps> = ({
 }) => {
   
   const attributes = useMemo(() => [
-    { label: 'Strength', key: 'strength', val: stats.strength, base: baseAttributes.strength, color: 'text-red-500', desc: 'Increases Damage' },
-    { label: 'Dexterity', key: 'dexterity', val: stats.dexterity, base: baseAttributes.dexterity, color: 'text-green-500', desc: 'Increases Armor & Dodge' },
-    { label: 'Intelligence', key: 'intelligence', val: stats.intelligence, base: baseAttributes.intelligence, color: 'text-blue-500', desc: 'Increases Crit Chance' },
-    { label: 'Vitality', key: 'vitality', val: stats.vitality, base: baseAttributes.vitality, color: 'text-purple-500', desc: 'Increases Health' },
+    { label: 'Strength', key: 'strength', val: stats.strength, base: baseAttributes.strength, color: 'text-red-500', desc: 'Increases Weapon Damage (+1.5%/pt) & Armor' },
+    { label: 'Dexterity', key: 'dexterity', val: stats.dexterity, base: baseAttributes.dexterity, color: 'text-green-500', desc: 'Increases Turn Speed & Dodge Chance' },
+    { label: 'Intelligence', key: 'intelligence', val: stats.intelligence, base: baseAttributes.intelligence, color: 'text-blue-500', desc: 'Increases Spell Power (+1.5%/pt) & Crit' },
+    { label: 'Vitality', key: 'vitality', val: stats.vitality, base: baseAttributes.vitality, color: 'text-purple-500', desc: 'Increases Health (+8 HP) & Turn Regen' },
   ], [stats, baseAttributes]);
 
   const combatStats = useMemo(() => [
     { label: 'Damage', val: stats.damage, icon: '⚔️' },
     { label: 'Armor', val: stats.armor, icon: '🛡️' },
     { label: 'Max HP', val: stats.maxHp, icon: '❤️' },
-    { label: 'Life Steal', val: `${stats.lifeSteal}%`, icon: '🩸' },
+    { label: 'Turn Regen', val: `+${stats.healthRegen || 1}/trn`, icon: '🌿' },
+    { label: 'Spell Power', val: `+${stats.spellPower || 0}%`, icon: '🔮' },
     { label: 'Crit Chance', val: `${stats.critChance}%`, icon: '⚡' },
     { label: 'Dodge Chance', val: `${stats.dodgeChance}%`, icon: '💨' },
+    { label: 'Life Steal', val: `${stats.lifeSteal}%`, icon: '🩸' },
+    { label: 'Thorns', val: `${stats.thorns || 0}%`, icon: '🌵' },
     { label: 'Magic Find', val: `${stats.magicFind}%`, icon: '🍀' },
   ], [stats]);
 

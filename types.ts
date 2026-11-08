@@ -222,6 +222,8 @@ export interface PlayerStats {
   dodgeChance: number;
   attackSpeed?: number;
   thorns?: number;
+  spellPower?: number; // Spell, DoT & Proc damage bonus % derived from Intelligence
+  healthRegen?: number; // Turn-based health regeneration derived from Vitality
   statPoints: number;
   skillPoints: number; // New currency for tree
   activeSetBonuses: PassiveTheme[];

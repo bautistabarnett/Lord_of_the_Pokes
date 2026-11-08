@@ -19,15 +19,34 @@ interface UseCombatEngineProps {
 }
 
 export const generateTurnBatch = (playerAgi: number, enemyAgi: number): ('player' | 'enemy')[] => {
-    const { playerAttacks, enemyAttacks, playerGoesFirst } = BALANCE.COMBAT.calculateTurns(playerAgi, enemyAgi);
+    const pAgi = Math.max(1, playerAgi);
+    const eAgi = Math.max(1, enemyAgi);
 
+    // Continuous Action Gauge: eliminates dead zones so every +1% speed matters
+    let pGauge = pAgi >= eAgi ? pAgi - eAgi : 0;
+    let eGauge = eAgi > pAgi ? eAgi - pAgi : 0;
     const batch: ('player' | 'enemy')[] = [];
-    if (playerGoesFirst) {
-        for (let i = 0; i < playerAttacks; i++) batch.push('player');
-        for (let i = 0; i < enemyAttacks; i++) batch.push('enemy');
-    } else {
-        for (let i = 0; i < enemyAttacks; i++) batch.push('enemy');
-        for (let i = 0; i < playerAttacks; i++) batch.push('player');
+
+    for (let step = 0; step < 8 && batch.length < 6; step++) {
+        pGauge += pAgi;
+        eGauge += eAgi;
+
+        while ((pGauge >= 100 || eGauge >= 100) && batch.length < 6) {
+            if (pGauge >= eGauge && pGauge >= 100) {
+                batch.push('player');
+                pGauge -= 100;
+            } else if (eGauge >= 100) {
+                batch.push('enemy');
+                eGauge -= 100;
+            } else {
+                break;
+            }
+        }
+    }
+
+    if (batch.length === 0) {
+        batch.push(pAgi >= eAgi ? 'player' : 'enemy');
+        batch.push(pAgi >= eAgi ? 'enemy' : 'player');
     }
     return batch;
 };
@@ -505,7 +524,8 @@ export const useCombatEngine = ({
                   const baseVal = effect.value;
                   
                   if (effect.type === 'burn' || effect.type === 'poison') {
-                      const dot = Math.max(1, Math.floor(m.maxHp * baseVal * stacks));
+                      const spellMultiplier = effect.source !== 'maledict' ? (1 + (playerStats.spellPower || 0) / 100) : 1;
+                      const dot = Math.max(1, Math.floor(m.maxHp * baseVal * stacks * spellMultiplier));
                       hp -= dot;
                       addToCombatLog(`${m.name} takes ${dot} ${effect.type} dmg.`);
                   }
@@ -557,6 +577,13 @@ export const useCombatEngine = ({
 
     const synergyDmg = processTriggers('onStartTurn', 'player');
     processCombatEffects('player');
+
+    // Vitality Health Regeneration: Turn-based sustained defense
+    if ((playerStats.healthRegen || 0) > 0 && playerHp < playerStats.maxHp) {
+        const regenAmt = Math.min(playerStats.healthRegen || 1, playerStats.maxHp - playerHp);
+        setPlayerHp(p => Math.min(playerStats.maxHp, p + regenAmt));
+        addToCombatLog(`💚 Vitality: Hero regenerates +${regenAmt} HP.`);
+    }
     
     if (playerHp <= 0) { handleDefeatInternal(); return; }
 
@@ -566,7 +593,6 @@ export const useCombatEngine = ({
         targetIndex = activeMonsters.findIndex(m => m.currentHp > 0);
     }
     if (targetIndex === -1) {
-        // Victory check should have happened, but just in case
         handleVictoryInternal(activeMonsters);
         return;
     }
@@ -586,6 +612,14 @@ export const useCombatEngine = ({
     }
 
     let rawDmg = (playerStats.damage + dynamicStr) * (0.8 + Math.random() * 0.4);
+
+    // Lucky Strike: Every 20% Magic Find gives +1% chance of Lucky Strike (max 10% chance)
+    const luckyChance = Math.min(10, Math.floor((playerStats.magicFind || 0) / 20));
+    const isLucky = luckyChance > 0 && Math.random() * 100 < luckyChance;
+    if (isLucky) {
+        rawDmg *= 1.25;
+        addToCombatLog("🍀 Lucky Strike! Fortune favors your blow (+25% damage)!");
+    }
     
     if (environment) {
         if (environment.activeSkillIds.includes('forest_fire') && environment.terrain === TerrainType.FOREST) {
@@ -629,7 +663,20 @@ export const useCombatEngine = ({
         addToCombatLog(`🚫 Blocked by ${targetMonster.name}'s Shield!`);
         setCombatStatusEffects(prev => prev.filter(e => !(e.target === 'enemy' && (e as any).targetId === targetMonster.id && e.type === 'shield')));
     } else {
+        // Cleave / Splash Damage on Overkill: 50% of overkill transfers to next living monster
+        const overkill = dmg - monsterHp;
         monsterHp -= dmg;
+
+        if (overkill > 0 && activeMonsters.length > 1) {
+            const nextTargetIdx = activeMonsters.findIndex((m, i) => i !== targetIndex && m.currentHp > 0);
+            if (nextTargetIdx >= 0) {
+                const splashDmg = Math.max(1, Math.floor(overkill * 0.5));
+                const splashTarget = activeMonsters[nextTargetIdx];
+                activeMonsters[nextTargetIdx] = { ...splashTarget, currentHp: Math.max(0, splashTarget.currentHp - splashDmg) };
+                addToCombatLog(`💥 Cleave! Overkill deals ${splashDmg} splash dmg to ${splashTarget.name}!`);
+            }
+        }
+
         const onHitDmg = processTriggers('onHit', 'player', dmg, targetIndex);
         monsterHp -= onHitDmg;
         
@@ -644,14 +691,20 @@ export const useCombatEngine = ({
             lifeStealVal += 15;
         }
 
+        // Lifesteal capped to effective damage dealt (no free full heals on 1 HP targets)
         if (lifeStealVal > 0) {
-            const heal = Math.floor(dmg * (lifeStealVal / 100));
-            setPlayerHp(p => Math.min(playerStats.maxHp, p + heal));
+            const effectiveDmg = Math.min(dmg, Math.max(0, targetMonster.currentHp));
+            const heal = Math.floor(effectiveDmg * (lifeStealVal / 100));
+            if (heal > 0) {
+                setPlayerHp(p => Math.min(playerStats.maxHp, p + heal));
+            }
         }
 
-        // Thorns Reflection on net damage received:
+        // Thorns Reflection on net damage received: Capped at 15% player max HP to prevent one-shot suicide on high crits
         if (targetMonster.thorns > 0 && dmg > 0) {
-            const thorn = Math.max(1, Math.floor(dmg * (targetMonster.thorns / 100)));
+            const maxThornCap = Math.max(5, Math.floor(playerStats.maxHp * 0.15));
+            const rawThorn = Math.max(1, Math.floor(dmg * (targetMonster.thorns / 100)));
+            const thorn = Math.min(maxThornCap, rawThorn);
             setPlayerHp(p => Math.max(0, p - thorn));
             addToCombatLog(`🌵 Thorns: ${targetMonster.name} reflects ${thorn} dmg!`);
             if (playerHp - thorn <= 0) {
@@ -702,6 +755,11 @@ export const useCombatEngine = ({
           const isDodge = Math.random() * 100 < dodgeChance;
           if (isDodge) {
               addToCombatLog(`Dodged ${monster.name}'s attack!`);
+              if ((playerStats.thorns || 0) > 0) {
+                  const dodgeReflect = Math.max(1, Math.floor((playerStats.thorns || 0) * 0.5));
+                  setActiveMonsters(prev => prev.map(m => m.id === monster.id ? { ...m, currentHp: Math.max(0, m.currentHp - dodgeReflect) } : m));
+                  addToCombatLog(`💨 Retaliation: Dodged and reflected ${dodgeReflect} thorn dmg to ${monster.name}!`);
+              }
               return;
           }
 
@@ -738,9 +796,10 @@ export const useCombatEngine = ({
               processTriggers('onHit', 'enemy', final, activeMonsters.indexOf(monster)); 
               processTriggers('onTakeDamage', 'player', final, activeMonsters.indexOf(monster));
 
-              // Player Thorns Reflection from equipped Idle Guild Master items/shields
-              if ((playerStats.thorns || 0) > 0 && final > 0) {
-                  const reflected = Math.max(1, Math.floor(final * ((playerStats.thorns || 0) / 100)));
+              // Player Thorns: Synergizes with raw incoming damage (pre-mitigation) + 5% armor bonus
+              if ((playerStats.thorns || 0) > 0) {
+                  const armorBonus = Math.floor(playerStats.armor * 0.05);
+                  const reflected = Math.max(1, Math.floor(dmg * ((playerStats.thorns || 0) / 100)) + armorBonus);
                   setActiveMonsters(prev => prev.map(m => m.id === monster.id ? { ...m, currentHp: Math.max(0, m.currentHp - reflected) } : m));
                   addToCombatLog(`🌵 Thorns reflects ${reflected} dmg to ${monster.name}!`);
               }
