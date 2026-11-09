@@ -844,10 +844,11 @@ export const useCombatEngine = ({
 
           const final = Math.max(1, Math.floor(dmg * (1 - finalMitigationPercent)));
 
-          // Dynamically rotate monster stance for upcoming turn
-          const stances = [CombatStance.WILL, CombatStance.SPIRIT, CombatStance.RESOLVE];
+          // Dynamically rotate monster stance for upcoming turn:
+          // Pick from the remaining postures so a 45% rotation actually shifts to another stance
+          const otherStances = [CombatStance.WILL, CombatStance.SPIRIT, CombatStance.RESOLVE].filter(s => s !== enemyStance);
           const shouldRotate = Math.random() < 0.45;
-          const nextStance = shouldRotate ? stances[Math.floor(Math.random() * stances.length)] : enemyStance;
+          const nextStance = shouldRotate ? otherStances[Math.floor(Math.random() * otherStances.length)] : enemyStance;
           const nextHidden = monster.rarity === 'Unique' ? (Math.random() < 0.6) : monster.isStanceHidden;
           setActiveMonsters(prev => prev.map(m => m.id === monster.id ? { ...m, currentStance: nextStance, isStanceHidden: nextHidden } : m));
           

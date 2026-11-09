@@ -154,7 +154,12 @@ export const EnemyInspectModal: React.FC<EnemyInspectModalProps> = ({
                 </span>
               )}
             </div>
-            {!currentMonster.isStanceHidden && currentMonster.currentStance && (
+            {currentMonster.isStanceHidden ? (
+              <div className="mt-1 text-[9px] font-mono text-purple-300 flex items-center gap-1.5">
+                <span className="text-amber-400 font-bold">Deducción de Élite:</span>
+                <span>Postura enigmática. Analiza sus atributos (Fuerza = Voluntad, Inteligencia/Velocidad = Espíritu, Defensa/Vida = Temple).</span>
+              </div>
+            ) : currentMonster.currentStance && (
               <div className="mt-1 text-[9px] font-mono text-stone-400 flex items-center gap-1.5">
                 <span className="text-amber-400 font-bold">Consejo Táctico:</span>
                 <span>Usa <strong className="text-emerald-400">{STANCE_META[currentMonster.currentStance]?.weakTo}</strong> para triunfar (+35% daño). Evita {STANCE_META[currentMonster.currentStance]?.beats}.</span>
