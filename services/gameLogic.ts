@@ -1,4 +1,4 @@
-import { Item, ItemSlot, Rarity, StatType, ItemStat, Monster, BaseAttributes, PassiveSkill, PlayerStats, EquipmentMap, ActiveEffect, PassiveTheme, MonsterRarity, MaledictAffix, SynergyDefinition, TerrainType } from '../types';
+import { Item, ItemSlot, Rarity, StatType, ItemStat, Monster, BaseAttributes, PassiveSkill, PlayerStats, EquipmentMap, ActiveEffect, PassiveTheme, MonsterRarity, MaledictAffix, SynergyDefinition, TerrainType, CombatStance } from '../types';
 import { PASSIVE_SKILLS_POOL, PASSIVE_SET_BONUSES, COMPOSITE_SYNERGIES, MALEDICT_AFFIXES } from '../constants';
 import { BALANCE } from './gameBalance';
 import { IconName } from '../components/GameIcon';
@@ -258,13 +258,34 @@ export const generateMonster = (level: number, difficultyModifier: number = 1.0,
       icon = 'boss';
   }
 
+  // Triad Stance Assignment based on monster stat profile
+  let initialStance = CombatStance.RESOLVE;
+  if (finalStr >= finalInt && finalStr >= finalDex) {
+    initialStance = CombatStance.WILL;
+  } else if (finalInt >= finalStr && finalInt >= finalDex) {
+    initialStance = CombatStance.SPIRIT;
+  } else {
+    initialStance = CombatStance.RESOLVE;
+  }
+
+  // Stance visibility: Common & Uncommon telegraphed (visible).
+  // Rare, Epic, Mythic and Unique (Bosses) have a chance to hide their stance (deduction needed)
+  let isStanceHidden = false;
+  if (rarity === MonsterRarity.UNIQUE || rarity === MonsterRarity.MYTHIC) {
+    isStanceHidden = Math.random() < 0.60;
+  } else if (rarity === MonsterRarity.EPIC || rarity === MonsterRarity.RARE) {
+    isStanceHidden = Math.random() < 0.40;
+  }
+
   return {
     id: generateId(),
     name, level, rarity,
     strength: Math.floor(finalStr), dexterity: Math.floor(finalDex), intelligence: Math.floor(finalInt), vitality: Math.floor(finalVit),
     maxHp, currentHp: maxHp, damage: Math.floor(damage), armor: Math.floor(armor),
     critChance, dodgeChance, lifeSteal: bonusLifeSteal, thorns: bonusThorns,
-    icon, imageUrl: spriteUrl, maledicts
+    icon, imageUrl: spriteUrl, maledicts,
+    currentStance: initialStance,
+    isStanceHidden
   };
 };
 

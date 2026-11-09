@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { BaseModal } from './BaseModal';
-import { Monster, CombatStatusEffect, PlayerStats, TerrainType } from '../types';
-import { BALANCE } from '../services/gameBalance';
+import { Monster, CombatStatusEffect, PlayerStats, TerrainType, CombatStance } from '../types';
+import { BALANCE, STANCE_META } from '../services/gameBalance';
 import GameIcon from './GameIcon';
 
 interface EnemyInspectModalProps {
@@ -133,6 +133,17 @@ export const EnemyInspectModal: React.FC<EnemyInspectModalProps> = ({
                   Bioma: {terrain}
                 </span>
               )}
+              {currentMonster.isStanceHidden ? (
+                <span className="px-1.5 py-0.5 rounded border border-purple-800/80 bg-purple-950/60 text-purple-300 font-bold flex items-center gap-1" title="Este enemigo enmascara su postura de combate.">
+                  <span>❓</span>
+                  <span>Postura: Oculta</span>
+                </span>
+              ) : (
+                <span className={`px-1.5 py-0.5 rounded border flex items-center gap-1 font-bold ${STANCE_META[currentMonster.currentStance || CombatStance.RESOLVE]?.color}`}>
+                  <span>{STANCE_META[currentMonster.currentStance || CombatStance.RESOLVE]?.icon}</span>
+                  <span>Postura: {STANCE_META[currentMonster.currentStance || CombatStance.RESOLVE]?.name}</span>
+                </span>
+              )}
               {isDead ? (
                 <span className="px-1.5 py-0.5 rounded bg-red-950/80 text-red-400 font-bold border border-red-800">
                   DEFEATED
@@ -143,6 +154,12 @@ export const EnemyInspectModal: React.FC<EnemyInspectModalProps> = ({
                 </span>
               )}
             </div>
+            {!currentMonster.isStanceHidden && currentMonster.currentStance && (
+              <div className="mt-1 text-[9px] font-mono text-stone-400 flex items-center gap-1.5">
+                <span className="text-amber-400 font-bold">Consejo Táctico:</span>
+                <span>Usa <strong className="text-emerald-400">{STANCE_META[currentMonster.currentStance]?.weakTo}</strong> para triunfar (+35% daño). Evita {STANCE_META[currentMonster.currentStance]?.beats}.</span>
+              </div>
+            )}
           </div>
         </div>
 

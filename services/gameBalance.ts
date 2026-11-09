@@ -59,10 +59,18 @@ export const BALANCE = {
       return Math.min(0.80, percent); // Max 80% damage reduction
     },
 
-    stanceMultipliers: {
-      [CombatStance.AGGRESSIVE]: { damage: 1.3, mitigation: 0.7 },
-      [CombatStance.DEFENSIVE]: { damage: 0.7, mitigation: 1.5 },
-      [CombatStance.BALANCED]: { damage: 1.0, mitigation: 1.0 },
+    triadConfig: {
+      advantages: {
+        [CombatStance.WILL]: CombatStance.SPIRIT,     // Voluntad vence a Espíritu
+        [CombatStance.SPIRIT]: CombatStance.RESOLVE,  // Espíritu vence a Temple
+        [CombatStance.RESOLVE]: CombatStance.WILL,    // Temple vence a Voluntad
+      },
+      winDamageMult: 1.35,     // +35% daño al triunfar
+      tieDamageMult: 1.00,     // 100% neutro
+      loseDamageMult: 0.60,    // 60% daño (reducción acordada)
+      winDefenseMitigationBonus: 0.20, // Jugador recibe 20% menos daño si su postura vence al atacante
+      loseDefensePenaltyBonus: 0.15,   // Jugador recibe 15% más daño si su postura es vulnerable al atacante
+      actionTimerSeconds: 2.5, // Temporizador de acción para el jugador
     },
 
     // Turn Logic (Smooth continuous turns)
@@ -117,4 +125,42 @@ export const getIdentifyCost = (item: Item): number => {
   const base = baseCosts[item.rarity] || 50;
   const lvlMult = Math.max(0.4, Math.min(1.5, 0.4 + (item.level || 1) * 0.05));
   return Math.max(5, Math.round(base * lvlMult));
+};
+
+export type TriadClashResult = 'WIN' | 'TIE' | 'LOSE';
+
+export const resolveTriadClash = (attackerStance: CombatStance, defenderStance: CombatStance): TriadClashResult => {
+  if (attackerStance === defenderStance) return 'TIE';
+  if (BALANCE.COMBAT.triadConfig.advantages[attackerStance] === defenderStance) return 'WIN';
+  return 'LOSE';
+};
+
+export const STANCE_META: Record<CombatStance, { name: string, icon: string, color: string, ringColor: string, beats: string, weakTo: string, desc: string }> = {
+  [CombatStance.WILL]: {
+    name: 'Voluntad',
+    icon: '🔴',
+    color: 'text-red-400 border-red-500 bg-red-950/50 hover:bg-red-900/60 shadow-[0_0_12px_rgba(239,68,68,0.35)]',
+    ringColor: 'ring-red-500',
+    beats: 'Espíritu',
+    weakTo: 'Temple',
+    desc: 'Ímpetu y fuerza. Vence a Espíritu pero cede ante Temple.'
+  },
+  [CombatStance.SPIRIT]: {
+    name: 'Espíritu',
+    icon: '🟣',
+    color: 'text-purple-400 border-purple-500 bg-purple-950/50 hover:bg-purple-900/60 shadow-[0_0_12px_rgba(168,85,247,0.35)]',
+    ringColor: 'ring-purple-500',
+    beats: 'Temple',
+    weakTo: 'Voluntad',
+    desc: 'Arcano y mente. Vence a Temple pero cede ante Voluntad.'
+  },
+  [CombatStance.RESOLVE]: {
+    name: 'Temple',
+    icon: '🟢',
+    color: 'text-emerald-400 border-emerald-500 bg-emerald-950/50 hover:bg-emerald-900/60 shadow-[0_0_12px_rgba(16,185,129,0.35)]',
+    ringColor: 'ring-emerald-500',
+    beats: 'Voluntad',
+    weakTo: 'Espíritu',
+    desc: 'Guardia y resiliencia. Vence a Voluntad pero cede ante Espíritu.'
+  }
 };

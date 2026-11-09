@@ -1,7 +1,7 @@
 import React from 'react';
 import { BaseModal } from './BaseModal';
 import { PlayerStats, CombatStatusEffect, ActiveEffect, CombatStance } from '../types';
-import { BALANCE } from '../services/gameBalance';
+import { BALANCE, STANCE_META } from '../services/gameBalance';
 import { getTitleById, DEFAULT_HERO_AVATAR } from '../services/spriteCatalog';
 
 interface HeroCombatStatsModalProps {
@@ -21,10 +21,6 @@ export const HeroCombatStatsModal: React.FC<HeroCombatStatsModalProps> = ({
   activeEffects,
   onClose,
 }) => {
-  const stanceMult =
-    BALANCE.COMBAT.stanceMultipliers[combatStance] ||
-    BALANCE.COMBAT.stanceMultipliers[CombatStance.BALANCED];
-
   // Dynamic buffs on player
   const playerCombatEffects = combatStatusEffects.filter((e) => e.target === 'player');
   const scalingStr = playerCombatEffects.find((e) => e.type === 'scaling_strength');
@@ -33,9 +29,7 @@ export const HeroCombatStatsModal: React.FC<HeroCombatStatsModalProps> = ({
   const activeShield = playerCombatEffects.find((e) => e.type === 'shield');
 
   const dynamicStrVal = scalingStr ? scalingStr.value : 0;
-  const effectiveDamage = Math.floor(
-    (playerStats.damage + dynamicStrVal) * stanceMult.damage
-  );
+  const effectiveDamage = Math.floor(playerStats.damage + dynamicStrVal);
 
   const effectiveCrit = playerStats.critChance + (critBoost ? critBoost.value : 0);
   const effectiveDodge = playerStats.dodgeChance + (dodgeBoost ? dodgeBoost.value : 0);
@@ -87,15 +81,12 @@ export const HeroCombatStatsModal: React.FC<HeroCombatStatsModalProps> = ({
               </span>
             </div>
             <div className="flex items-center gap-2 mt-1">
-              <span className="text-[10px] font-mono uppercase bg-stone-800 text-stone-300 px-2 py-0.5 rounded border border-stone-700 flex items-center gap-1">
-                <span>
-                  {combatStance === CombatStance.AGGRESSIVE
-                    ? '⚔️'
-                    : combatStance === CombatStance.DEFENSIVE
-                    ? '🛡️'
-                    : '⚖️'}
+              <span className={`text-[10px] font-mono uppercase px-2 py-0.5 rounded border flex items-center gap-1.5 ${STANCE_META[combatStance]?.color || 'bg-stone-800 border-stone-700 text-stone-300'}`}>
+                <span>{STANCE_META[combatStance]?.icon || '🔴'}</span>
+                <span>Postura: {STANCE_META[combatStance]?.name || combatStance}</span>
+                <span className="text-[9px] text-stone-400 font-normal">
+                  (Vence a: {STANCE_META[combatStance]?.beats})
                 </span>
-                Stance: {combatStance}
               </span>
               {activeShield && (
                 <span className="text-[10px] font-mono text-cyan-400 bg-cyan-950/70 border border-cyan-800 px-1.5 py-0.5 rounded flex items-center gap-1">

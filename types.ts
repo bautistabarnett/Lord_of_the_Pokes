@@ -44,9 +44,9 @@ export enum StatType {
 }
 
 export enum CombatStance {
-  BALANCED = 'Balanced',
-  AGGRESSIVE = 'Aggressive',
-  DEFENSIVE = 'Defensive'
+  WILL = 'Will',       // Voluntad (🔴 Vence a Espíritu)
+  SPIRIT = 'Spirit',   // Espíritu (🟣 Vence a Temple)
+  RESOLVE = 'Resolve', // Temple (🟢 Vence a Voluntad)
 }
 
 export interface ItemStat {
@@ -277,6 +277,8 @@ export interface Monster {
   imageUrl?: string; // AI generated monster visual
   
   maledicts: MaledictAffix[];
+  currentStance?: CombatStance;
+  isStanceHidden?: boolean;
 }
 
 export type EquipmentMap = {

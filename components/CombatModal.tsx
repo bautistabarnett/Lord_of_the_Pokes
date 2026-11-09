@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { Monster, PlayerStats, CombatStatusEffect, ActiveEffect, CombatStance, MaledictAffix, TerrainType } from '../types';
-import { BALANCE } from '../services/gameBalance';
+import { BALANCE, STANCE_META, TriadClashResult } from '../services/gameBalance';
 import { TERRAIN_BATTLEBACKS, DEFAULT_HERO_AVATAR } from '../services/spriteCatalog';
 import GameIcon from './GameIcon';
 import { EnemyInspectModal } from './EnemyInspectModal';
@@ -19,6 +19,14 @@ interface CombatModalProps {
   activeEffects: ActiveEffect[];
   combatStance: CombatStance;
   onSetStance: (stance: CombatStance) => void;
+  onExecuteStance?: (stance: CombatStance) => void;
+  actionTimerProgress?: number;
+  lastClashResult?: {
+    playerStance: CombatStance;
+    enemyStance: CombatStance;
+    result: TriadClashResult;
+    timestamp: number;
+  } | null;
   turnQueue: ('player' | 'enemy')[];
   terrain?: TerrainType;
   selectedTargetId?: string | null;
@@ -222,6 +230,9 @@ const CombatModal: React.FC<CombatModalProps> = ({
   activeEffects, 
   combatStance, 
   onSetStance, 
+  onExecuteStance,
+  actionTimerProgress = 0,
+  lastClashResult = null,
   turnQueue, 
   terrain,
   selectedTargetId,
@@ -401,25 +412,76 @@ const CombatModal: React.FC<CombatModalProps> = ({
                 </div>
 
                 {/* CONTROLS SECTION */}
-                <div className="order-2 flex flex-col items-center justify-center z-10 my-1 sm:my-0 w-full sm:w-auto shrink-0 flex-1 gap-1.5 lg:gap-3">
-                     <div className="hidden sm:block text-2xl lg:text-6xl xl:text-7xl diablo-font text-red-800 font-bold drop-shadow-lg opacity-50 leading-none">VS</div>
+                <div className="order-2 flex flex-col items-center justify-center z-10 my-1 sm:my-0 w-full sm:w-auto shrink-0 flex-1 gap-1.5 lg:gap-2.5">
+                     <div className="hidden sm:block text-2xl lg:text-5xl xl:text-6xl diablo-font text-red-800 font-bold drop-shadow-lg opacity-40 leading-none">VS</div>
                      
-                     {/* Stance Selector */}
-                     <div className="flex gap-2 bg-stone-900/80 p-1.5 lg:p-2 rounded border border-stone-700 backdrop-blur-md shadow-xl">
-                        {[CombatStance.AGGRESSIVE, CombatStance.BALANCED, CombatStance.DEFENSIVE].map(s => (
-                            <button key={s} onClick={() => onSetStance(s)} className={`w-9 h-9 lg:w-12 lg:h-12 flex items-center justify-center rounded transition-all active:scale-95 touch-manipulation cursor-pointer ${combatStance === s ? 'bg-stone-700 text-amber-400 border border-stone-500 shadow-[0_0_10px_rgba(251,191,36,0.2)]' : 'text-stone-600 hover:text-stone-300 hover:bg-stone-800'}`}>
-                                <span className="text-base lg:text-lg">{s === CombatStance.AGGRESSIVE ? '⚔️' : s === CombatStance.DEFENSIVE ? '🛡️' : '⚖️'}</span>
-                            </button>
-                        ))}
+                     {/* Clash Event Banner */}
+                     {lastClashResult && Date.now() - lastClashResult.timestamp < 3200 && (
+                        <div className={`px-2.5 py-1 rounded text-[10px] lg:text-xs font-bold uppercase tracking-wider shadow-lg flex items-center gap-1.5 animate-bounce ${
+                            lastClashResult.result === 'WIN' 
+                                ? 'bg-emerald-950/90 border border-emerald-500 text-emerald-300 shadow-[0_0_12px_rgba(16,185,129,0.4)]' 
+                                : lastClashResult.result === 'LOSE'
+                                ? 'bg-red-950/90 border border-red-500 text-red-300 shadow-[0_0_12px_rgba(239,68,68,0.4)]'
+                                : 'bg-stone-900/90 border border-stone-600 text-stone-300'
+                        }`}>
+                            <span>{lastClashResult.result === 'WIN' ? '⚔️ ¡TRIUNFO! +35% DMG' : lastClashResult.result === 'LOSE' ? '⚠️ DESVENTAJA (60% DMG)' : '⚖️ CHOQUE PAREJO'}</span>
+                        </div>
+                     )}
+
+                     {/* Action Timer Bar during Player's Turn */}
+                     {isPlayerTurn && (
+                        <div className="w-full max-w-[210px] flex flex-col gap-0.5 items-center px-1">
+                            <div className="flex justify-between w-full text-[9px] font-mono text-amber-300 font-bold px-0.5">
+                                <span className="flex items-center gap-1">⏱️ Tu Turno</span>
+                                <span>¡Elige Postura!</span>
+                            </div>
+                            <div className="w-full h-1.5 bg-stone-950 rounded-full overflow-hidden border border-amber-600/60 shadow-inner">
+                                <div 
+                                    className="h-full bg-gradient-to-r from-amber-500 via-yellow-400 to-amber-300 transition-all duration-75"
+                                    style={{ width: `${actionTimerProgress}%` }}
+                                />
+                            </div>
+                        </div>
+                     )}
+
+                     {/* Triad Stance Interactive Buttons */}
+                     <div className="flex gap-1.5 lg:gap-2.5 bg-stone-950/90 p-1.5 lg:p-2 rounded-xl border border-stone-800 backdrop-blur-md shadow-2xl">
+                        {[CombatStance.WILL, CombatStance.SPIRIT, CombatStance.RESOLVE].map(s => {
+                            const meta = STANCE_META[s];
+                            const isCurrent = combatStance === s;
+                            return (
+                                <button 
+                                    key={s} 
+                                    onClick={() => {
+                                        onSetStance(s);
+                                        if (onExecuteStance) onExecuteStance(s);
+                                    }} 
+                                    className={`w-14 sm:w-16 lg:w-20 py-1.5 px-1 flex flex-col items-center justify-center rounded-lg border transition-all active:scale-95 touch-manipulation cursor-pointer ${
+                                        isCurrent 
+                                            ? `${meta.color} ring-2 ${meta.ringColor} shadow-lg scale-105 z-10` 
+                                            : 'bg-stone-900/80 border-stone-800 text-stone-400 hover:text-stone-200 hover:border-stone-700'
+                                    }`}
+                                    title={`${meta.name}: Vence a ${meta.beats}, cede ante ${meta.weakTo}`}
+                                >
+                                    <span className="text-lg lg:text-2xl leading-none">{meta.icon}</span>
+                                    <span className="text-[10px] lg:text-xs font-bold mt-0.5 tracking-tight">{meta.name}</span>
+                                    <span className="text-[8px] font-mono text-stone-400 opacity-80 leading-none">
+                                        vs {STANCE_META[meta.beats as CombatStance]?.icon || meta.beats}
+                                    </span>
+                                </button>
+                            );
+                        })}
                     </div>
-                    <div className="text-[9px] lg:text-[10px] text-stone-500 font-bold uppercase tracking-widest leading-none">Combat Stance</div>
+                    <div className="text-[8px] lg:text-[9px] text-stone-500 font-mono tracking-tight text-center">
+                        🔴 Voluntad &gt; 🟣 Espíritu &gt; 🟢 Temple &gt; 🔴 Voluntad
+                    </div>
 
                     {/* Emergency Potion Button */}
                     {onUsePotion && (
                         <button
                             onClick={onUsePotion}
                             disabled={potionsRemaining <= 0}
-                            className="px-3 py-1 lg:px-4 lg:py-1.5 bg-gradient-to-r from-red-950 via-red-900 to-red-950 hover:from-red-900 hover:to-red-800 disabled:opacity-40 disabled:cursor-not-allowed border border-red-700 text-red-200 text-[11px] lg:text-xs font-bold rounded-full shadow-lg flex items-center gap-1.5 lg:gap-2 transition-all active:scale-95 cursor-pointer"
+                            className="px-3 py-1 lg:px-4 lg:py-1.5 bg-gradient-to-r from-red-950 via-red-900 to-red-950 hover:from-red-900 hover:to-red-800 disabled:opacity-40 disabled:cursor-not-allowed border border-red-700 text-red-200 text-[11px] lg:text-xs font-bold rounded-full shadow-lg flex items-center gap-1.5 lg:gap-2 transition-all active:scale-95 cursor-pointer mt-0.5"
                             title="Restore 35% HP"
                         >
                             <span className="text-sm lg:text-base">🧪</span>
@@ -482,7 +544,19 @@ const CombatModal: React.FC<CombatModalProps> = ({
                                         </div>
                                         <div className="flex-grow flex flex-col justify-center min-w-0">
                                             <div className="flex justify-between items-center mb-0.5 lg:mb-1">
-                                                <span className={`text-[11px] lg:text-xs font-bold truncate ${isDead ? 'line-through text-stone-600' : 'text-stone-300'}`}>{m.name}</span>
+                                                <div className="flex items-center gap-1.5 truncate">
+                                                    <span className={`text-[11px] lg:text-xs font-bold truncate ${isDead ? 'line-through text-stone-600' : 'text-stone-300'}`}>{m.name}</span>
+                                                    {!isDead && (
+                                                        m.isStanceHidden ? (
+                                                            <span className="px-1 py-0.2 rounded text-[8px] font-mono border border-purple-800 bg-purple-950/70 text-purple-300 font-bold shrink-0" title="Postura Oculta">❓</span>
+                                                        ) : (
+                                                            <span className={`px-1 py-0.2 rounded text-[8px] font-mono border font-bold flex items-center gap-0.5 shrink-0 ${STANCE_META[m.currentStance || CombatStance.RESOLVE]?.color}`}>
+                                                                <span>{STANCE_META[m.currentStance || CombatStance.RESOLVE]?.icon}</span>
+                                                                <span>{STANCE_META[m.currentStance || CombatStance.RESOLVE]?.name}</span>
+                                                            </span>
+                                                        )
+                                                    )}
+                                                </div>
                                                 <div className="flex gap-1">
                                                     {[...m.maledicts, ...combatStatusEffects.filter(e => e.target === 'enemy' && (e as any).targetId === m.id)].slice(0, 3).map((e, i) => (
                                                         <AuraBadge key={i} effect={e} onHover={handleEffectHover} onLeave={handleEffectLeave} small />
@@ -517,9 +591,22 @@ const CombatModal: React.FC<CombatModalProps> = ({
                                         <span>🔍</span>
                                         <span>Codex</span>
                                     </button>
-                                    <span className="text-[9px] lg:text-[10px] font-bold text-stone-400 font-mono uppercase tracking-wider">
-                                        {targetMonster.rarity} {targetMonster.isBoss ? '• BOSS' : ''}
-                                    </span>
+                                    <div className="flex items-center gap-1.5 flex-wrap">
+                                        {targetMonster.isStanceHidden ? (
+                                            <span className="px-1.5 py-0.5 rounded text-[9px] lg:text-[10px] font-mono border border-purple-800 bg-purple-950/70 text-purple-300 font-bold flex items-center gap-1" title="Postura Oculta: Deduce sus patrones">
+                                                <span>❓</span>
+                                                <span>Postura: Oculta</span>
+                                            </span>
+                                        ) : (
+                                            <span className={`px-1.5 py-0.5 rounded text-[9px] lg:text-[10px] font-mono border font-bold flex items-center gap-1 ${STANCE_META[targetMonster.currentStance || CombatStance.RESOLVE]?.color}`}>
+                                                <span>{STANCE_META[targetMonster.currentStance || CombatStance.RESOLVE]?.icon}</span>
+                                                <span>Postura: {STANCE_META[targetMonster.currentStance || CombatStance.RESOLVE]?.name}</span>
+                                            </span>
+                                        )}
+                                        <span className="text-[9px] lg:text-[10px] font-bold text-stone-400 font-mono uppercase tracking-wider">
+                                            {targetMonster.rarity} {targetMonster.isBoss ? '• BOSS' : ''}
+                                        </span>
+                                    </div>
                                 </div>
                                 <HealthBar current={targetMonster.currentHp} max={targetMonster.maxHp} isEnemy />
                                 <div className="flex gap-2 justify-between flex-row-reverse sm:flex-row">

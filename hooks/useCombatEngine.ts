@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Monster, PlayerStats, CombatStatusEffect, ActiveEffect, CombatStance, CombatTrigger, LogEntry, TerrainType, PassiveSkill } from '../types';
 import { COMPOSITE_SYNERGIES, PASSIVE_SET_BONUSES, PASSIVE_SKILLS_POOL } from '../constants';
-import { BALANCE } from '../services/gameBalance';
+import { BALANCE, resolveTriadClash, STANCE_META, TriadClashResult } from '../services/gameBalance';
 
 interface UseCombatEngineProps {
   playerStats: PlayerStats | null;
@@ -98,7 +98,23 @@ export const useCombatEngine = ({
   const [combatLog, setCombatLog] = useState<string[]>([]);
   const [turnQueue, setTurnQueue] = useState<('player' | 'enemy')[]>([]);
   const [isPlayerTurn, setIsPlayerTurn] = useState(true);
-  const [combatStance, setCombatStance] = useState<CombatStance>(CombatStance.BALANCED);
+  const [combatStance, setCombatStance] = useState<CombatStance>(CombatStance.WILL);
+  const [actionTimerProgress, setActionTimerProgress] = useState<number>(0);
+  const [lastClashResult, setLastClashResult] = useState<{
+    playerStance: CombatStance;
+    enemyStance: CombatStance;
+    result: TriadClashResult;
+    timestamp: number;
+  } | null>(null);
+
+  const combatStanceRef = useRef<CombatStance>(combatStance);
+  useEffect(() => {
+    combatStanceRef.current = combatStance;
+  }, [combatStance]);
+
+  const actionIntervalRef = useRef<any>(null);
+  const turnTimeoutRef = useRef<any>(null);
+
   const [combatStatusEffects, setCombatStatusEffects] = useState<CombatStatusEffect[]>([]);
   const [turnCount, setTurnCount] = useState(0);
   const [selectedTargetId, setSelectedTargetId] = useState<string | null>(null);
@@ -132,7 +148,10 @@ export const useCombatEngine = ({
     setSelectedTargetId(monsters.length > 0 ? monsters[0].id : null);
     setPotionsRemaining(2);
     setIsFighting(true);
-    setCombatStance(CombatStance.BALANCED);
+    setCombatStance(CombatStance.WILL);
+    combatStanceRef.current = CombatStance.WILL;
+    setActionTimerProgress(0);
+    setLastClashResult(null);
     
     // Initial Environment Check & Battle Start Triggers
     if (environment) {
@@ -569,7 +588,7 @@ export const useCombatEngine = ({
   };
 
   // --- TURN RESOLUTION ---
-  const resolveCombatTurn = () => {
+  const resolveCombatTurn = (overrideStance?: CombatStance) => {
     if (activeMonsters.length === 0 || !playerStats) return;
     
     // Decrease skill cooldowns
@@ -641,8 +660,26 @@ export const useCombatEngine = ({
         }
     }
 
-    const stanceMult = BALANCE.COMBAT.stanceMultipliers[combatStance] || BALANCE.COMBAT.stanceMultipliers[CombatStance.BALANCED];
-    rawDmg *= stanceMult.damage;
+    const activeStance = overrideStance || combatStanceRef.current;
+    const enemyStance = targetMonster.currentStance || CombatStance.RESOLVE;
+    const clash = resolveTriadClash(activeStance, enemyStance);
+
+    setLastClashResult({
+      playerStance: activeStance,
+      enemyStance,
+      result: clash,
+      timestamp: Date.now()
+    });
+
+    if (clash === 'WIN') {
+      rawDmg *= BALANCE.COMBAT.triadConfig.winDamageMult;
+      addToCombatLog(`⚔️ ¡TRIUNFO! Tu ${STANCE_META[activeStance].name} quiebra el ${STANCE_META[enemyStance].name} de ${targetMonster.name} (+35% daño)!`);
+    } else if (clash === 'LOSE') {
+      rawDmg *= BALANCE.COMBAT.triadConfig.loseDamageMult;
+      addToCombatLog(`⚠️ ¡DESVENTAJA! El ${STANCE_META[enemyStance].name} de ${targetMonster.name} resiste tu ${STANCE_META[activeStance].name} (daño al 60%).`);
+    } else {
+      addToCombatLog(`⚖️ Choque parejo: Ambas posturas son ${STANCE_META[activeStance].name}.`);
+    }
 
     const isPoisoned = combatStatusEffects.some(e => e.target === 'enemy' && (e as any).targetId === targetMonster.id && e.type === 'poison');
     const isFrozenEnemy = combatStatusEffects.some(e => e.target === 'enemy' && (e as any).targetId === targetMonster.id && e.type === 'freeze');
@@ -789,13 +826,30 @@ export const useCombatEngine = ({
           
           // Asymptotic player armor mitigation
           const baseMitigationPercent = BALANCE.COMBAT.calculateMitigationPercent(playerStats.armor, playerStats.level);
-          const stanceMult = BALANCE.COMBAT.stanceMultipliers[combatStance] || BALANCE.COMBAT.stanceMultipliers[CombatStance.BALANCED];
-          // Stance modifies effective mitigation percentage (capped between 0% and 85%)
-          // Defensive stance provides at least a 15% flat mitigation floor even if armor is 0
-          const minFloor = combatStance === CombatStance.DEFENSIVE ? 0.15 : 0;
-          const finalMitigationPercent = Math.min(0.85, Math.max(minFloor, baseMitigationPercent * stanceMult.mitigation));
+          
+          // Triad Clash on enemy attack
+          const enemyStance = monster.currentStance || CombatStance.RESOLVE;
+          const enemyClash = resolveTriadClash(enemyStance, combatStanceRef.current);
+
+          let finalMitigationPercent = baseMitigationPercent;
+          if (enemyClash === 'WIN') {
+              // Enemy attack has advantage over player stance
+              finalMitigationPercent = Math.max(0, baseMitigationPercent - BALANCE.COMBAT.triadConfig.loseDefensePenaltyBonus);
+              addToCombatLog(`💥 ¡VULNERABLE! El ataque de ${STANCE_META[enemyStance].name} de ${monster.name} penetra tu ${STANCE_META[combatStanceRef.current].name}!`);
+          } else if (enemyClash === 'LOSE') {
+              // Player stance counters enemy attack
+              finalMitigationPercent = Math.min(0.85, baseMitigationPercent + BALANCE.COMBAT.triadConfig.winDefenseMitigationBonus);
+              addToCombatLog(`🛡️ ¡DESVÍO! Tu ${STANCE_META[combatStanceRef.current].name} amortigua el ataque de ${STANCE_META[enemyStance].name} de ${monster.name}!`);
+          }
 
           const final = Math.max(1, Math.floor(dmg * (1 - finalMitigationPercent)));
+
+          // Dynamically rotate monster stance for upcoming turn
+          const stances = [CombatStance.WILL, CombatStance.SPIRIT, CombatStance.RESOLVE];
+          const shouldRotate = Math.random() < 0.45;
+          const nextStance = shouldRotate ? stances[Math.floor(Math.random() * stances.length)] : enemyStance;
+          const nextHidden = monster.rarity === 'Unique' ? (Math.random() < 0.6) : monster.isStanceHidden;
+          setActiveMonsters(prev => prev.map(m => m.id === monster.id ? { ...m, currentStance: nextStance, isStanceHidden: nextHidden } : m));
           
           // Check for Player Shield
           const playerShield = combatStatusEffects.find(e => e.target === 'player' && e.type === 'shield');
@@ -867,27 +921,90 @@ export const useCombatEngine = ({
       } 
   };
 
-  // --- COMBAT LOOP ---
+  // --- COMBAT LOOP WITH ACTION TIMER ---
   useEffect(() => {
-    if (!isFighting || activeMonsters.length === 0 || !playerStats) return;
+    if (!isFighting || activeMonsters.length === 0 || !playerStats) {
+      if (actionIntervalRef.current) {
+        clearInterval(actionIntervalRef.current);
+        actionIntervalRef.current = null;
+      }
+      if (turnTimeoutRef.current) {
+        clearTimeout(turnTimeoutRef.current);
+        turnTimeoutRef.current = null;
+      }
+      setActionTimerProgress(0);
+      return;
+    }
+
     if (turnQueue.length === 0) return;
 
     const currentActor = turnQueue[0];
-    setIsPlayerTurn(currentActor === 'player');
-    
-    if (currentActor === 'player') setTurnCount(prev => prev + 1);
+    const isPlayer = currentActor === 'player';
+    setIsPlayerTurn(isPlayer);
 
-    const timer = setTimeout(() => {
+    if (isPlayer) {
+      setTurnCount(prev => prev + 1);
+      // Action Timer for Player: 2500ms
+      const ACTION_TIME_MS = 2500;
+      const startTime = Date.now();
+      setActionTimerProgress(100);
+
+      if (actionIntervalRef.current) clearInterval(actionIntervalRef.current);
+
+      actionIntervalRef.current = setInterval(() => {
+        const elapsed = Date.now() - startTime;
+        const remainingPct = Math.max(0, 100 - (elapsed / ACTION_TIME_MS) * 100);
+        setActionTimerProgress(remainingPct);
+
+        if (elapsed >= ACTION_TIME_MS) {
+          clearInterval(actionIntervalRef.current);
+          actionIntervalRef.current = null;
+          setActionTimerProgress(0);
+          resolveCombatTurn(combatStanceRef.current);
+          setTurnQueue(prev => prev.slice(1));
+        }
+      }, 50);
+
+      return () => {
+        if (actionIntervalRef.current) {
+          clearInterval(actionIntervalRef.current);
+          actionIntervalRef.current = null;
+        }
+      };
+    } else {
+      // Enemy Turn: brief pause of 900ms then execute
+      setActionTimerProgress(0);
+      if (turnTimeoutRef.current) clearTimeout(turnTimeoutRef.current);
+
+      turnTimeoutRef.current = setTimeout(() => {
         if (!isFighting) return;
-
-        if (currentActor === 'player') resolveCombatTurn();
-        else executeEnemyTurn();
-        
+        executeEnemyTurn();
         setTurnQueue(prev => prev.slice(1));
-    }, 1000); 
+      }, 900);
 
-    return () => clearTimeout(timer);
-  }, [isFighting, activeMonsters, turnQueue, combatStance, playerHp]);
+      return () => {
+        if (turnTimeoutRef.current) {
+          clearTimeout(turnTimeoutRef.current);
+          turnTimeoutRef.current = null;
+        }
+      };
+    }
+  }, [isFighting, activeMonsters, turnQueue, playerHp]);
+
+  // Direct Stance Trigger (Player clicks one of the triad buttons during action timer)
+  const executeStanceAction = useCallback((chosenStance: CombatStance) => {
+    setCombatStance(chosenStance);
+    combatStanceRef.current = chosenStance;
+
+    // If it's the player's active turn and timer is running, resolve immediately!
+    if (isPlayerTurn && actionIntervalRef.current) {
+      clearInterval(actionIntervalRef.current);
+      actionIntervalRef.current = null;
+      setActionTimerProgress(0);
+      resolveCombatTurn(chosenStance);
+      setTurnQueue(prev => prev.slice(1));
+    }
+  }, [isPlayerTurn]);
 
   const usePotion = useCallback(() => {
       if (!isFighting || potionsRemaining <= 0 || !playerStats) return false;
@@ -909,12 +1026,15 @@ export const useCombatEngine = ({
           isPlayerTurn,
           combatLog,
           combatStatusEffects,
-          combatStance
+          combatStance,
+          actionTimerProgress,
+          lastClashResult
       },
       battleActions: {
           startBattle,
           flee: handleFlee,
           setCombatStance,
+          executeStanceAction,
           setSelectedTargetId,
           usePotion,
           updateMonsterImage

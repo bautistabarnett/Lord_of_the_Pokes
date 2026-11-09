@@ -1059,6 +1059,9 @@ export default function App() {
             activeEffects={activeEffects} 
             combatStance={battleState.combatStance} 
             onSetStance={battleActions.setCombatStance} 
+            onExecuteStance={battleActions.executeStanceAction}
+            actionTimerProgress={battleState.actionTimerProgress}
+            lastClashResult={battleState.lastClashResult}
             turnQueue={battleState.turnQueue} 
             terrain={currentArea.terrain}
             selectedTargetId={battleState.selectedTargetId}
