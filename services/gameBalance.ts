@@ -23,15 +23,15 @@ export const BALANCE = {
   },
   
   ITEM_VALUE: {
-    baseMultiplier: 15,
+    baseMultiplier: 10,
     rarityMultipliers: {
       [Rarity.COMMON]: 1,
-      [Rarity.MAGIC]: 2.5,
-      [Rarity.RARE]: 6,
-      [Rarity.UNIQUE]: 15,
+      [Rarity.MAGIC]: 2.0,
+      [Rarity.RARE]: 4.5,
+      [Rarity.UNIQUE]: 10,
     },
     identifyPenalty: 0.5, // Unidentified items sell for 50%
-    statBonusMultiplier: 0.5, // Gold added per point of total stats
+    statBonusMultiplier: 0.25, // Gold added per point of total stats
     buyMarkup: 3, // Buying items costs 3x their sell value
   },
 
@@ -77,22 +77,22 @@ export const BALANCE = {
   },
 
   LOOT: {
-    baseDropChance: 0.4,
-    difficultyScaling: 0.1, // Added to drop chance per difficulty level
-    magicFindFactor: 0.01, // 1 MF = 1% increase
+    baseDropChance: 0.35,
+    difficultyScaling: 0.05, // Added to drop chance per difficulty level
+    magicFindFactor: 0.005, // Used in diminishing returns curve
 
-    // Base probabilities before MF
+    // Base probabilities before MF and difficulty
     rarityChances: {
-      [Rarity.UNIQUE]: 0.01,
-      [Rarity.RARE]: 0.05,
-      [Rarity.MAGIC]: 0.20,
+      [Rarity.UNIQUE]: 0.005, // 0.5% base
+      [Rarity.RARE]: 0.035,   // 3.5% base
+      [Rarity.MAGIC]: 0.18,   // 18.0% base
     },
     
-    // Caps to prevent 100% unique drops
+    // Strict caps even with maximum MF and boss encounters
     caps: {
-      [Rarity.UNIQUE]: 0.25,
-      [Rarity.RARE]: 0.50,
-      [Rarity.MAGIC]: 0.90,
+      [Rarity.UNIQUE]: 0.018, // 1.8% hard cap
+      [Rarity.RARE]: 0.085,   // 8.5% hard cap
+      [Rarity.MAGIC]: 0.35,   // 35.0% hard cap
     }
   },
 

@@ -9,7 +9,7 @@ import { BaseModal } from './BaseModal';
 interface SmugglingModalProps {
   gold: number;
   onPurchase: (cost: number) => void;
-  onGenerateLoot: (difficulty: number) => Item | null;
+  onGenerateLoot: (forcedRarity?: Rarity) => Item | null;
   onClose: () => void;
   addToInventory: (item: Item) => boolean;
 }
@@ -34,18 +34,32 @@ const SmugglingModal: React.FC<SmugglingModalProps> = ({
     setPurchasedItem(null);
 
     setTimeout(() => {
-        let diff = 1;
-        if (bundle.id === 'crate') diff = 4;
-        if (bundle.id === 'chest') diff = 8;
+        const roll = Math.random();
+        let targetRarity: Rarity = Rarity.COMMON;
 
-        let item = onGenerateLoot(diff);
-        let attempts = 0;
-        while (attempts < 10) {
-             if (item) break;
-             item = onGenerateLoot(diff + (attempts * 0.5));
-             attempts++;
+        const uChance = bundle.dropChances[Rarity.UNIQUE] || 0;
+        const rChance = bundle.dropChances[Rarity.RARE] || 0;
+        const mChance = bundle.dropChances[Rarity.MAGIC] || 0;
+
+        if (roll < uChance) {
+          targetRarity = Rarity.UNIQUE;
+        } else if (roll < uChance + rChance) {
+          targetRarity = Rarity.RARE;
+        } else if (roll < uChance + rChance + mChance) {
+          targetRarity = Rarity.MAGIC;
         }
-        if (!item) item = onGenerateLoot(1) as Item; 
+
+        // Apply guaranteed quality floor
+        if (bundle.guaranteedRarity === Rarity.RARE && targetRarity !== Rarity.UNIQUE) {
+          targetRarity = Rarity.RARE;
+        } else if (bundle.guaranteedRarity === Rarity.MAGIC && targetRarity === Rarity.COMMON) {
+          targetRarity = Rarity.MAGIC;
+        }
+
+        let item = onGenerateLoot(targetRarity);
+        if (!item) {
+          item = onGenerateLoot(bundle.guaranteedRarity || Rarity.COMMON) as Item;
+        }
 
         setPurchasedItem(item);
         setIsOpening(false);

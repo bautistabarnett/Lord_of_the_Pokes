@@ -51,43 +51,55 @@ export const calculateItemValue = (item: Item): number => {
     return Math.floor((base * rarityMult + statBonus) * identifiedMult);
 };
 
-export const generateLoot = (level: number, difficulty: number = 1, magicFind: number = 0): Item | null => {
-  const { baseDropChance, difficultyScaling, magicFindFactor, rarityChances, caps } = BALANCE.LOOT;
+export const generateLoot = (
+  level: number, 
+  difficulty: number = 1, 
+  magicFind: number = 0,
+  forcedRarity?: Rarity
+): Item | null => {
+  const { baseDropChance, difficultyScaling, rarityChances, caps } = BALANCE.LOOT;
   
-  const currentDropChance = baseDropChance + ((difficulty - 1) * difficultyScaling);
-  if (Math.random() > currentDropChance) return null;
+  // If forcedRarity is not specified, run normal drop chance check
+  if (!forcedRarity) {
+    const currentDropChance = Math.min(0.70, baseDropChance + ((difficulty - 1) * difficultyScaling));
+    if (Math.random() > currentDropChance) return null;
+  }
 
   const slot = getRandomElement(ITEM_TYPES);
 
-  const mfMultiplier = 1 + (magicFind * magicFindFactor);
-  
-  let uniqueChance = (rarityChances[Rarity.UNIQUE] * difficulty) * Math.pow(difficulty, 1.2) * mfMultiplier;
-  let rareChance = (rarityChances[Rarity.RARE] * difficulty) * 1.5 * mfMultiplier;
-  let magicChance = (rarityChances[Rarity.MAGIC] + (difficulty * 0.1)) * mfMultiplier;
+  let rarity = forcedRarity || Rarity.COMMON;
 
-  uniqueChance = Math.min(uniqueChance, caps[Rarity.UNIQUE]); 
-  rareChance = Math.min(rareChance, caps[Rarity.RARE]); 
-  magicChance = Math.min(magicChance, caps[Rarity.MAGIC]);
+  if (!forcedRarity) {
+    // Diminishing returns on Magic Find: 100 MF yields +50% quality boost, capped asymptotically at +75%
+    const safeMf = Math.max(0, magicFind);
+    const mfEffect = 1 + (safeMf / (safeMf + 100)) * 0.75;
+    
+    // Controlled difficulty scaling: each difficulty step adds +20% relative chance
+    const diffFactor = 1 + Math.max(0, difficulty - 1) * 0.20;
 
-  const roll = Math.random();
-  let rarity = Rarity.COMMON;
+    const uniqueChance = Math.min(caps[Rarity.UNIQUE], rarityChances[Rarity.UNIQUE] * diffFactor * mfEffect);
+    const rareChance = Math.min(caps[Rarity.RARE], rarityChances[Rarity.RARE] * diffFactor * mfEffect);
+    const magicChance = Math.min(caps[Rarity.MAGIC], rarityChances[Rarity.MAGIC] * diffFactor * mfEffect);
 
-  if (roll < uniqueChance) rarity = Rarity.UNIQUE;
-  else if (roll < uniqueChance + rareChance) rarity = Rarity.RARE;
-  else if (roll < uniqueChance + rareChance + magicChance) rarity = Rarity.MAGIC;
+    const roll = Math.random();
+    if (roll < uniqueChance) rarity = Rarity.UNIQUE;
+    else if (roll < uniqueChance + rareChance) rarity = Rarity.RARE;
+    else if (roll < uniqueChance + rareChance + magicChance) rarity = Rarity.MAGIC;
+    else rarity = Rarity.COMMON;
+  }
 
   // Select authentic item graphic, lore, and stat archetype from Idle Guild Master catalog
   const catalogEntry = selectCatalogItem(slot, rarity, level);
 
   const stats: ItemStat[] = [];
   let numStats = 1;
-  let statMultiplier = 1;
+  let statMultiplier = 1.0;
 
   switch (rarity) {
-    case Rarity.COMMON: numStats = 2; statMultiplier = 1.0; break;
-    case Rarity.MAGIC: numStats = 3; statMultiplier = 1.25; break;
-    case Rarity.RARE: numStats = 4; statMultiplier = 1.55; break;
-    case Rarity.UNIQUE: numStats = 6; statMultiplier = 2.0; break;
+    case Rarity.COMMON: numStats = 1; statMultiplier = 1.0; break;
+    case Rarity.MAGIC: numStats = 2; statMultiplier = 1.10; break;
+    case Rarity.RARE: numStats = 3; statMultiplier = 1.22; break;
+    case Rarity.UNIQUE: numStats = 4; statMultiplier = 1.35; break;
   }
 
   const fallbackStats = [StatType.STRENGTH, StatType.DEXTERITY, StatType.INTELLIGENCE, StatType.VITALITY, StatType.ARMOR];
@@ -110,17 +122,30 @@ export const generateLoot = (level: number, difficulty: number = 1, magicFind: n
       : getRandomElement(fallbackStats);
 
     let baseVal = 0;
-    if ([StatType.STRENGTH, StatType.DEXTERITY, StatType.INTELLIGENCE, StatType.VITALITY].includes(statType)) baseVal = getRandomInt(2, 5) * level;
-    else if (statType === StatType.DAMAGE) baseVal = getRandomInt(3, 5) * level;
-    else if (statType === StatType.ARMOR) baseVal = getRandomInt(5, 10) * level;
-    else if (statType === StatType.CRIT_CHANCE || statType === StatType.DODGE_CHANCE) baseVal = getRandomInt(2, 6);
-    else if (statType === StatType.ATTACK_SPEED) baseVal = getRandomInt(3, 8);
-    else if (statType === StatType.LIFE_STEAL) baseVal = getRandomInt(2, 6);
-    else if (statType === StatType.THORNS) baseVal = getRandomInt(5, 12);
-    else if (statType === StatType.MAGIC_FIND) baseVal = getRandomInt(5, 15);
+    if ([StatType.STRENGTH, StatType.DEXTERITY, StatType.INTELLIGENCE, StatType.VITALITY].includes(statType)) {
+      baseVal = 1 + Math.floor(level * 0.75) + getRandomInt(0, 2);
+    } else if (statType === StatType.DAMAGE) {
+      baseVal = Math.max(2, Math.floor(level * 1.2)) + getRandomInt(1, 3);
+    } else if (statType === StatType.ARMOR) {
+      baseVal = Math.max(3, Math.floor(level * 2.0)) + getRandomInt(1, 4);
+    } else if (statType === StatType.CRIT_CHANCE || statType === StatType.DODGE_CHANCE) {
+      baseVal = getRandomInt(1, 3);
+    } else if (statType === StatType.ATTACK_SPEED) {
+      baseVal = getRandomInt(2, 5);
+    } else if (statType === StatType.LIFE_STEAL) {
+      baseVal = getRandomInt(1, 2);
+    } else if (statType === StatType.THORNS) {
+      baseVal = Math.max(2, Math.floor(level * 1.0)) + getRandomInt(1, 3);
+    } else if (statType === StatType.MAGIC_FIND) {
+      baseVal = getRandomInt(2, 6);
+    }
 
     let val = Math.floor(baseVal * statMultiplier) || 1;
-    if (rarity === Rarity.UNIQUE && statType === StatType.MAGIC_FIND) val = Math.floor(val * 1.5);
+    if (rarity === Rarity.UNIQUE) {
+      if (statType === StatType.LIFE_STEAL) val = Math.min(3, val);
+      if (statType === StatType.CRIT_CHANCE || statType === StatType.DODGE_CHANCE) val = Math.min(4, val);
+      if (statType === StatType.MAGIC_FIND) val = Math.min(8, val);
+    }
 
     if (!stats.find(s => s.type === statType)) stats.push({ type: statType, value: val });
   }

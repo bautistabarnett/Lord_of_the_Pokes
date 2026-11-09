@@ -695,7 +695,7 @@ export const EXPLORATION_EVENTS: ExplorationEvent[] = [
 ];
 
 export const SMUGGLING_BUNDLES: SmugglingBundle[] = [
-    { id: 'sack', name: 'Thief\'s Sack', description: 'A dusty sack collected from the roadside. Cheap and mostly worthless, but sometimes...', cost: 250, icon: 'sack', dropChances: { [Rarity.UNIQUE]: 0.01, [Rarity.RARE]: 0.10, [Rarity.MAGIC]: 0.50 } },
-    { id: 'crate', name: 'Smuggler\'s Crate', description: 'A reinforced crate smuggled past the guards. Contains decent gear.', cost: 1000, icon: 'crate', guaranteedRarity: Rarity.MAGIC, dropChances: { [Rarity.UNIQUE]: 0.05, [Rarity.RARE]: 0.30, [Rarity.MAGIC]: 1.0 } },
-    { id: 'chest', name: 'Void-Touched Chest', description: 'A chest radiating dark energy. High risk, high reward.', cost: 5000, icon: 'chest', guaranteedRarity: Rarity.RARE, dropChances: { [Rarity.UNIQUE]: 0.15, [Rarity.RARE]: 1.0, [Rarity.MAGIC]: 1.0 } }
+    { id: 'sack', name: 'Thief\'s Sack', description: 'A dusty sack collected from the roadside. Cheap and mostly worthless, but sometimes...', cost: 250, icon: 'sack', dropChances: { [Rarity.UNIQUE]: 0.005, [Rarity.RARE]: 0.04, [Rarity.MAGIC]: 0.25 } },
+    { id: 'crate', name: 'Smuggler\'s Crate', description: 'A reinforced crate smuggled past the guards. Contains decent gear.', cost: 1000, icon: 'crate', guaranteedRarity: Rarity.MAGIC, dropChances: { [Rarity.UNIQUE]: 0.02, [Rarity.RARE]: 0.15, [Rarity.MAGIC]: 1.0 } },
+    { id: 'chest', name: 'Void-Touched Chest', description: 'A chest radiating dark energy. High risk, high reward.', cost: 5000, icon: 'chest', guaranteedRarity: Rarity.RARE, dropChances: { [Rarity.UNIQUE]: 0.06, [Rarity.RARE]: 1.0, [Rarity.MAGIC]: 1.0 } }
 ];
