@@ -195,6 +195,17 @@ export const HeroCombatStatsModal: React.FC<HeroCombatStatsModalProps> = ({
               <span className="text-[9px] text-stone-500 block font-normal">MF: {playerStats.magicFind}%</span>
             </span>
           </div>
+
+          <div className="bg-stone-900/60 border border-stone-800 rounded p-2 col-span-2 sm:col-span-3">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] text-amber-400 uppercase font-bold flex items-center gap-1">
+                <span>🤺</span> Reacción Rápida: {playerStats.attackSpeed || 0}%
+              </span>
+              <span className="text-[10px] text-stone-400">
+                🗡️ Parry: <strong className="text-cyan-400">{Math.min(50, Math.round((playerStats.attackSpeed || 0) * 1.0))}%</strong> (-35% dmg) • 🤺 Finta: <strong className="text-amber-300">{Math.min(35, Math.round((playerStats.attackSpeed || 0) * 0.6))}%</strong> (100% hit)
+              </span>
+            </div>
+          </div>
         </div>
 
         {/* Active Mastery Title */}

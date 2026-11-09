@@ -73,14 +73,9 @@ export const BALANCE = {
       actionTimerSeconds: 2.5, // Temporizador de acción para el jugador
     },
 
-    // Turn Logic (Smooth continuous turns)
-    calculateTurns: (playerAgi: number, enemyAgi: number) => {
-      const pAgi = Math.max(1, playerAgi);
-      const eAgi = Math.max(1, enemyAgi);
-      const ratio = pAgi / eAgi;
-      const playerAttacks = ratio >= 1 ? Math.min(3, Math.max(1, Math.round(ratio))) : 1;
-      const enemyAttacks = ratio < 1 ? Math.min(3, Math.max(1, Math.round(1 / ratio))) : 1;
-      return { playerAttacks, enemyAttacks, playerGoesFirst: pAgi >= eAgi };
+    // Turn Logic (V2 Triad Rule: Strict 1:1 alternating turns, Player always has Turn 1 initiative)
+    calculateTurns: (_playerAgi?: number, _enemyAgi?: number) => {
+      return { playerAttacks: 1, enemyAttacks: 1, playerGoesFirst: true };
     }
   },
 

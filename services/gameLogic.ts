@@ -434,6 +434,8 @@ export const calculatePlayerStats = (
       case StatType.LIFE_STEAL: currentStats.lifeSteal += passive.value; break;
       case StatType.CRIT_CHANCE: currentStats.critChance += passive.value; break;
       case StatType.DODGE_CHANCE: currentStats.dodgeChance += passive.value; break;
+      case StatType.ATTACK_SPEED: currentStats.attackSpeed = (currentStats.attackSpeed || 0) + passive.value; break;
+      case StatType.THORNS: currentStats.thorns = (currentStats.thorns || 0) + passive.value; break;
     }
   });
 
@@ -460,6 +462,8 @@ export const calculatePlayerStats = (
                 case StatType.LIFE_STEAL: currentStats.lifeSteal += stat.value; break;
                 case StatType.CRIT_CHANCE: currentStats.critChance += stat.value; break;
                 case StatType.DODGE_CHANCE: currentStats.dodgeChance += stat.value; break;
+                case StatType.ATTACK_SPEED: currentStats.attackSpeed = (currentStats.attackSpeed || 0) + stat.value; break;
+                case StatType.THORNS: currentStats.thorns = (currentStats.thorns || 0) + stat.value; break;
              }
           });
       }
@@ -511,6 +515,8 @@ export const calculatePlayerStats = (
       case StatType.LIFE_STEAL: currentStats.lifeSteal += val; break;
       case StatType.CRIT_CHANCE: currentStats.critChance += val; break;
       case StatType.DODGE_CHANCE: currentStats.dodgeChance += val; break;
+      case StatType.ATTACK_SPEED: currentStats.attackSpeed = (currentStats.attackSpeed || 0) + val; break;
+      case StatType.THORNS: currentStats.thorns = (currentStats.thorns || 0) + val; break;
     }
   });
 
@@ -523,8 +529,9 @@ export const calculatePlayerStats = (
   // Armor: Shared between Strength (heavy physique) and Dexterity (light deflection)
   currentStats.armor += Math.floor(currentStats.strength * 0.3) + Math.floor(currentStats.dexterity * 0.2);
 
-  // DEX: Evasion & Initiative driver (max 65% dodge cap)
+  // DEX: Evasion (+0.15%/pt) & Quick Reaction (+0.2%/pt for Parry & Feint)
   currentStats.dodgeChance += (currentStats.dexterity * 0.15); 
+  currentStats.attackSpeed = parseFloat(((currentStats.attackSpeed || 0) + (currentStats.dexterity * 0.2)).toFixed(1));
 
   // INT: Critical focus + Spell & Proc Power (+1.5% per point)
   currentStats.critChance += (currentStats.intelligence * 0.1);

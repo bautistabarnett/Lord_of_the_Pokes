@@ -163,7 +163,7 @@ const ItemCard = ({
           <div className="space-y-0.5 lg:space-y-1">
             {sortedStats.map((stat, idx) => (
               <div key={idx} className="flex justify-between items-center text-stone-300 font-serif text-xs lg:text-[15px]">
-                <span className="text-stone-400">{stat.type}</span>
+                <span className="text-stone-400">{stat.type === StatType.ATTACK_SPEED ? 'Reacción Rápida' : stat.type}</span>
                 <div className="flex items-center">
                     {/* Show diff calculation only on the inspecting card */}
                     {!isEquipped && comparedItem && getStatDiff(stat, comparedItem)}

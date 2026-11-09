@@ -26,23 +26,27 @@ const StatsModal: React.FC<StatsModalProps> = ({
   
   const attributes = useMemo(() => [
     { label: 'Strength', key: 'strength', val: stats.strength, base: baseAttributes.strength, color: 'text-red-500', desc: 'Increases Weapon Damage (+1.5%/pt) & Armor' },
-    { label: 'Dexterity', key: 'dexterity', val: stats.dexterity, base: baseAttributes.dexterity, color: 'text-green-500', desc: 'Increases Turn Speed & Dodge Chance' },
+    { label: 'Dexterity', key: 'dexterity', val: stats.dexterity, base: baseAttributes.dexterity, color: 'text-green-500', desc: 'Increases Quick Reaction (Parry/Feint) & Dodge' },
     { label: 'Intelligence', key: 'intelligence', val: stats.intelligence, base: baseAttributes.intelligence, color: 'text-blue-500', desc: 'Increases Spell Power (+1.5%/pt) & Crit' },
     { label: 'Vitality', key: 'vitality', val: stats.vitality, base: baseAttributes.vitality, color: 'text-purple-500', desc: 'Increases Health (+8 HP) & Turn Regen' },
   ], [stats, baseAttributes]);
+
+  const parryPct = Math.min(50, Math.round((stats.attackSpeed || 0) * 1.0));
+  const feintPct = Math.min(35, Math.round((stats.attackSpeed || 0) * 0.6));
 
   const combatStats = useMemo(() => [
     { label: 'Damage', val: stats.damage, icon: '⚔️' },
     { label: 'Armor', val: stats.armor, icon: '🛡️' },
     { label: 'Max HP', val: stats.maxHp, icon: '❤️' },
     { label: 'Turn Regen', val: `+${stats.healthRegen || 1}/trn`, icon: '🌿' },
+    { label: 'Reacción Rápida', val: `${stats.attackSpeed || 0}% (P:${parryPct}%/F:${feintPct}%)`, icon: '🤺' },
     { label: 'Spell Power', val: `+${stats.spellPower || 0}%`, icon: '🔮' },
     { label: 'Crit Chance', val: `${stats.critChance}%`, icon: '⚡' },
     { label: 'Dodge Chance', val: `${stats.dodgeChance}%`, icon: '💨' },
     { label: 'Life Steal', val: `${stats.lifeSteal}%`, icon: '🩸' },
     { label: 'Thorns', val: `${stats.thorns || 0}%`, icon: '🌵' },
     { label: 'Magic Find', val: `${stats.magicFind}%`, icon: '🍀' },
-  ], [stats]);
+  ], [stats, parryPct, feintPct]);
 
   return (
     <BaseModal.Container zIndex="z-[90]" maxWidth="max-w-4xl" className="max-h-[96dvh] lg:max-h-[90vh]">

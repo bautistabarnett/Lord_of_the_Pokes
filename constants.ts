@@ -175,7 +175,7 @@ export const PASSIVE_SKILLS_POOL: Omit<PassiveSkill, 'level' | 'value'>[] = [
   },
   { 
       id: 'killing_spree', name: 'Killing Spree', rarity: Rarity.RARE, 
-      description: 'Momentum builds. +{value}% Attack Speed.', theme: PassiveTheme.WARFARE, 
+      description: 'Momentum builds. +{value}% Quick Reaction (Parry & Feint).', theme: PassiveTheme.WARFARE, 
       statType: StatType.ATTACK_SPEED, baseValue: 5, valuePerLevel: 2,
       tier: 3, maxRank: 5, prerequisiteId: 'war_precision', treeX: 3
   },
@@ -403,7 +403,7 @@ export const PASSIVE_SKILLS_POOL: Omit<PassiveSkill, 'level' | 'value'>[] = [
   // --- FORTUNE (Loot / Gold) ---
   { 
       id: 'gold_lust', name: 'Gold Lust', rarity: Rarity.COMMON, 
-      description: 'Greed fuels you. Increases Attack Speed by {value}%.', theme: PassiveTheme.FORTUNE, 
+      description: 'Greed sharpens reflexes. Increases Quick Reaction (Parry & Feint) by {value}%.', theme: PassiveTheme.FORTUNE, 
       statType: StatType.ATTACK_SPEED, baseValue: 5, valuePerLevel: 2,
       tier: 1, maxRank: 5, treeX: 2
   },

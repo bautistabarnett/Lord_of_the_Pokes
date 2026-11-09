@@ -17,37 +17,12 @@ interface UseCombatEngineProps {
   };
 }
 
-export const generateTurnBatch = (playerAgi: number, enemyAgi: number): ('player' | 'enemy')[] => {
-    const pAgi = Math.max(1, playerAgi);
-    const eAgi = Math.max(1, enemyAgi);
-
-    // Continuous Action Gauge: eliminates dead zones so every +1% speed matters
-    let pGauge = pAgi >= eAgi ? pAgi - eAgi : 0;
-    let eGauge = eAgi > pAgi ? eAgi - pAgi : 0;
-    const batch: ('player' | 'enemy')[] = [];
-
-    for (let step = 0; step < 8 && batch.length < 6; step++) {
-        pGauge += pAgi;
-        eGauge += eAgi;
-
-        while ((pGauge >= 100 || eGauge >= 100) && batch.length < 6) {
-            if (pGauge >= eGauge && pGauge >= 100) {
-                batch.push('player');
-                pGauge -= 100;
-            } else if (eGauge >= 100) {
-                batch.push('enemy');
-                eGauge -= 100;
-            } else {
-                break;
-            }
-        }
-    }
-
-    if (batch.length === 0) {
-        batch.push(pAgi >= eAgi ? 'player' : 'enemy');
-        batch.push(pAgi >= eAgi ? 'enemy' : 'player');
-    }
-    return batch;
+export const generateTurnBatch = (_playerAgi?: number, _enemyAgi?: number, startWith: 'player' | 'enemy' = 'player'): ('player' | 'enemy')[] => {
+    // V2 Triad Combat Rule: Strictly 1:1 alternating turns, no double turns or speed acceleration.
+    // By default, the player always has initiative on turn 1.
+    return startWith === 'player'
+        ? ['player', 'enemy', 'player', 'enemy', 'player', 'enemy']
+        : ['enemy', 'player', 'enemy', 'player', 'enemy', 'player'];
 };
 
 // Helper to consolidate stacking effects
@@ -143,10 +118,8 @@ export const useCombatEngine = ({
     setPlayerHp(playerStats.maxHp);
     playerHpRef.current = playerStats.maxHp;
     
-    // Average enemy dexterity for turn calculation
-    const avgEnemyDex = monsters.reduce((sum, m) => sum + m.dexterity, 0) / monsters.length;
-    const effectivePlayerAgi = playerStats.dexterity * (1 + (playerStats.attackSpeed || 0) / 100);
-    setTurnQueue(generateTurnBatch(effectivePlayerAgi, avgEnemyDex));
+    // V2 Triad Combat Rule: Player always takes the first turn, followed by strictly alternating 1:1 turns
+    setTurnQueue(generateTurnBatch(1, 1, 'player'));
     
     if (monsters.length > 1) {
         addToCombatLog(`Encountered a group of ${monsters.length} enemies!`);
@@ -242,25 +215,18 @@ export const useCombatEngine = ({
       setActiveMonsters(prev => prev.length > 0 ? [{ ...prev[0], imageUrl: url }, ...prev.slice(1)] : []);
   }, []);
 
-  // --- DYNAMIC AGILITY RECALC ---
+  // --- STRICT 1:1 TURN QUEUE MAINTENANCE ---
   useEffect(() => {
-      if (!isFighting || activeMonsters.length === 0 || !playerStats) return;
-      
-      const playerChillStacks = combatStatusEffects
-        .filter(e => e.target === 'player' && e.type === 'chill')
-        .reduce((acc, curr) => acc + curr.stacks, 0);
-      
-      const avgDex = activeMonsters.reduce((sum, m) => sum + m.dexterity, 0) / activeMonsters.length;
-      
-      // Calculate group chill? For now, ignore enemy chill on turn recalc complexity
-      const pAgi = playerStats.dexterity * (1 + (playerStats.attackSpeed || 0) / 100) * Math.pow(0.8, playerChillStacks);
-      const eAgi = avgDex; // Simplified group agility
+      if (!isFighting || activeMonstersRef.current.length === 0 || !playerStats) return;
 
-      if (turnQueue.length < 2) {
-          const nextBatch = generateTurnBatch(pAgi, eAgi);
-          setTurnQueue(prev => [...prev, ...nextBatch]);
+      if (turnQueue.length < 3) {
+          setTurnQueue(prev => {
+              const lastActor = prev.length > 0 ? prev[prev.length - 1] : 'enemy';
+              const nextStart = lastActor === 'player' ? 'enemy' : 'player';
+              return [...prev, ...generateTurnBatch(1, 1, nextStart)];
+          });
       }
-  }, [turnQueue, playerStats, activeMonsters, combatStatusEffects, isFighting]);
+  }, [turnQueue, isFighting, playerStats]);
 
   // --- TRIGGERS ---
   const processTriggers = (trigger: CombatTrigger, actor: 'player' | 'enemy', damageDealt: number = 0, targetMonsterIndex: number = 0): number => {
@@ -692,8 +658,19 @@ export const useCombatEngine = ({
       rawDmg *= BALANCE.COMBAT.triadConfig.winDamageMult;
       addToCombatLog(`⚔️ ¡TRIUNFO! Tu ${STANCE_META[activeStance].name} quiebra el ${STANCE_META[enemyStance].name} de ${targetMonster.name} (+35% daño)!`);
     } else if (clash === 'LOSE') {
-      rawDmg *= BALANCE.COMBAT.triadConfig.loseDamageMult;
-      addToCombatLog(`⚠️ ¡DESVENTAJA! El ${STANCE_META[enemyStance].name} de ${targetMonster.name} resiste tu ${STANCE_META[activeStance].name} (daño al 60%).`);
+      // Quick Reaction -> Feint (Finta): Chance to recover from a failed stance and deal 100% normal damage
+      const chillStacks = combatStatusEffects
+        .filter(e => e.target === 'player' && e.type === 'chill')
+        .reduce((acc, curr) => acc + curr.stacks, 0);
+      const effectiveReaction = Math.max(0, (playerStats.attackSpeed || 0) * Math.pow(0.8, chillStacks));
+      const feintChance = Math.min(35, effectiveReaction * 0.6);
+
+      if (feintChance > 0 && Math.random() * 100 < feintChance) {
+        addToCombatLog(`🤺 ¡FINTA RÁPIDA! Pese a fallar la postura (${STANCE_META[activeStance].name} vs ${STANCE_META[enemyStance].name}), tu Reacción Rápida corrige el golpe (100% daño)!`);
+      } else {
+        rawDmg *= BALANCE.COMBAT.triadConfig.loseDamageMult;
+        addToCombatLog(`⚠️ ¡DESVENTAJA! El ${STANCE_META[enemyStance].name} de ${targetMonster.name} resiste tu ${STANCE_META[activeStance].name} (daño al 60%).`);
+      }
     } else {
       addToCombatLog(`⚖️ Choque parejo: Ambas posturas son ${STANCE_META[activeStance].name}.`);
     }
@@ -872,7 +849,19 @@ export const useCombatEngine = ({
               addToCombatLog(`🛡️ ¡DESVÍO! Tu ${STANCE_META[combatStanceRef.current].name} amortigua el ataque de ${STANCE_META[enemyStance].name} de ${monster.name}!`);
           }
 
-          const final = Math.max(1, Math.floor(dmg * (1 - finalMitigationPercent)));
+          let final = Math.max(1, Math.floor(dmg * (1 - finalMitigationPercent)));
+
+          // Quick Reaction -> Parry (Parada): Chance to partially deflect incoming blow for -35% damage
+          const chillStacks = combatStatusEffects
+            .filter(e => e.target === 'player' && e.type === 'chill')
+            .reduce((acc, curr) => acc + curr.stacks, 0);
+          const effectiveReaction = Math.max(0, (playerStats.attackSpeed || 0) * Math.pow(0.8, chillStacks));
+          const parryChance = Math.min(50, effectiveReaction * 1.0);
+
+          if (parryChance > 0 && Math.random() * 100 < parryChance) {
+              final = Math.max(1, Math.floor(final * 0.65));
+              addToCombatLog(`🗡️ ¡PARRY! Tu Reacción Rápida desvía el impacto de ${monster.name} (-35% daño)!`);
+          }
 
           // Dynamically rotate monster stance for upcoming turn:
           // Pick from the remaining postures so a 45% rotation actually shifts to another stance
