@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { Item, ItemSlot, PlayerStats, EquipmentMap, LogEntry, Rarity, Monster, BaseAttributes, PassiveSkill, MapNode, ExplorationEvent, ActiveEffect, EventType, CombatStatusEffect, CombatStance, MonsterRarity, CombatTrigger, SaveData, BuildLoadout } from './types';
 import { generateLoot, calculatePlayerStats, generateMonster, generatePassiveSkill, calculateItemValue, generateEncounter } from './services/gameLogic';
-import { identifyItemWithGemini, generateEncounterDescription, generatePassiveLore, generateCombatNarrative, generateImage } from './services/geminiService';
 import { RARITY_COLORS, SLOT_ICONS, MAX_INVENTORY_SIZE, INITIAL_WORLD_MAP, EXPLORATION_EVENTS, PASSIVE_SET_BONUSES, COMPOSITE_SYNERGIES, PASSIVE_SKILLS_POOL } from './constants';
 import { BALANCE, getIdentifyCost } from './services/gameBalance';
 import { storageService } from './services/storageService';
@@ -17,7 +16,6 @@ import EventModal from './components/EventModal';
 import SmugglingModal from './components/SmugglingModal';
 import SkillsModal from './components/SkillsModal';
 import StatsModal from './components/StatsModal';
-import VisualizerModal from './components/VisualizerModal';
 import { MainMenu } from './components/MainMenu';
 import SystemModal from './components/SystemModal';
 import BalanceDashboard from './components/BalanceDashboard';
@@ -70,9 +68,6 @@ export default function App() {
   const [showSystemModal, setShowSystemModal] = useState(false);
   const [showBalanceModal, setShowBalanceModal] = useState(false);
 
-  const [isVisualizeMode, setIsVisualizeMode] = useState(false);
-  const [visualizingItem, setVisualizingItem] = useState<Item | null>(null);
-  const [isVisualizingHero, setIsVisualizingHero] = useState(false);
   const [isUIBlocked, setIsUIBlocked] = useState(false);
   const [playerCurrentHp, setPlayerCurrentHp] = useState(() => 100 + (BALANCE.STATS.base.vitality * 8) + (1 * BALANCE.STATS.perLevel.hp));
   const [showLevelUpModal, setShowLevelUpModal] = useState(false);
@@ -587,16 +582,16 @@ export default function App() {
   }, [stats.maxHp, battleState.isFighting]);
 
   useEffect(() => {
-      const anyModalOpen = showMapModal || showSmugglingModal || showSkillsModal || showLevelUpModal || showStatsModal || !!currentEvent || !!visualizingItem || isVisualizingHero || showSystemModal || !!skillReward || showBalanceModal || showHeroClassModal;
+      const anyModalOpen = showMapModal || showSmugglingModal || showSkillsModal || showLevelUpModal || showStatsModal || !!currentEvent || showSystemModal || !!skillReward || showBalanceModal || showHeroClassModal;
       setIsUIBlocked(anyModalOpen);
-  }, [showMapModal, showSmugglingModal, showSkillsModal, showLevelUpModal, showStatsModal, currentEvent, visualizingItem, isVisualizingHero, showSystemModal, skillReward, showBalanceModal, showHeroClassModal]);
+  }, [showMapModal, showSmugglingModal, showSkillsModal, showLevelUpModal, showStatsModal, currentEvent, showSystemModal, skillReward, showBalanceModal, showHeroClassModal]);
 
   const handleDragStart = useCallback((e: React.DragEvent, source: 'inventory' | 'equipment' | 'sell', index: number | string) => {
-    if (isUIBlocked || isVisualizeMode) { e.preventDefault(); return; }
+    if (isUIBlocked) { e.preventDefault(); return; }
     e.dataTransfer.setData('application/json', JSON.stringify({ source, index }));
     e.dataTransfer.effectAllowed = 'move';
     setHoverItem(null); 
-  }, [isUIBlocked, isVisualizeMode]);
+  }, [isUIBlocked]);
 
   const handleDragOver = useCallback((e: React.DragEvent) => e.preventDefault(), []);
 
@@ -673,7 +668,7 @@ export default function App() {
 
   const handleDrop = useCallback((e: React.DragEvent, targetContext: 'inventory' | 'equipment' | 'sell', targetIndex?: number | string) => {
     e.preventDefault();
-    if (isUIBlocked || isVisualizeMode) return;
+    if (isUIBlocked) return;
     const json = e.dataTransfer.getData('application/json');
     if (!json) return;
     const { source, index } = JSON.parse(json);
@@ -695,7 +690,7 @@ export default function App() {
        if (source === 'sell') return; 
        moveItemToEquipment(item, source, index, targetIndex as ItemSlot);
     } else if (targetContext === 'sell' && merchantMode === 'sell') moveItemToSell(item, source, index);
-  }, [isUIBlocked, isVisualizeMode, inventory, equipment, sellStaging, merchantMode, moveItemToInventory, moveItemToEquipment, moveItemToSell]);
+  }, [isUIBlocked, inventory, equipment, sellStaging, merchantMode, moveItemToInventory, moveItemToEquipment, moveItemToSell]);
   
   const handleConfirmSell = useCallback(() => {
       if (sellStaging.length === 0) return;
@@ -828,14 +823,6 @@ export default function App() {
     }
     
     battleActions.startBattle(monsters, level);
-
-    // AI Generation Trigger - Just target the first one or boss
-    const mainMonster = monsters[0];
-    const prompt = `A terrifying, high-fidelity dark fantasy digital painting of a ${mainMonster.rarity} monster named "${mainMonster.name}". The creature appears as a ${mainMonster.icon} type. Atmospheric lighting, visceral texture, Diablo-style concept art, centered composition.`;
-    generateImage(prompt).then(url => {
-        if (url) battleActions.updateMonsterImage(url);
-    });
-
   }, [battleState.isFighting, isUIBlocked, stats, mapNodes, currentAreaId, areaProgress, worldDifficulty, level, combatsSinceLastEvent, battleActions, triggerRandomEvent]);
 
   const handleIdentifySingle = useCallback((item: Item, idx: number) => {
@@ -913,18 +900,16 @@ export default function App() {
   }, [inventory, gold, addLog]);
 
   const handleEquip = useCallback((item: Item, idx: number) => { 
-      if (isVisualizeMode) { setVisualizingItem(item); return; } 
       if (!item.isIdentified) {
           handleIdentifySingle(item, idx);
           return;
       } 
       moveItemToEquipment(item, 'inventory', idx, item.type); 
-  }, [isVisualizeMode, moveItemToEquipment, handleIdentifySingle]);
+  }, [moveItemToEquipment, handleIdentifySingle]);
 
   const handleUnequip = useCallback((slot: ItemSlot) => { 
       const i = equipment[slot]; 
       if (!i) return; 
-      if (isVisualizeMode) { setVisualizingItem(i); return; } 
       if (addToInventory(i)) { 
           setEquipment(prev => {
               const n = { ...prev }; 
@@ -932,7 +917,7 @@ export default function App() {
               return n;
           });
       } 
-  }, [equipment, isVisualizeMode, addToInventory]);
+  }, [equipment, addToInventory]);
 
   const handleSellAllCommons = useCallback(() => {
       const commonsToSell: Item[] = [];
@@ -966,27 +951,6 @@ export default function App() {
       }
   }, [activeTab, merchantMode, moveItemToSell, handleIdentifySingle, handleEquip, handleUnequip]);
 
-  const handleSaveVisual = useCallback((url: string) => { 
-      if (isVisualizingHero) { 
-          setHeroImageUrl(url); 
-          setIsVisualizingHero(false); 
-      } else if (visualizingItem) { 
-          const n = { ...visualizingItem, imageUrl: url }; 
-          if (equipment[n.type]?.id === n.id) {
-              setEquipment(p => ({ ...p, [n.type]: n })); 
-          } else { 
-              const idx = inventory.findIndex(x => x?.id === n.id); 
-              if (idx !== -1) { 
-                  setInventory(prev => {
-                      const inv = [...prev]; 
-                      inv[idx] = n; 
-                      return inv;
-                  }); 
-              } 
-          } 
-          setVisualizingItem(null); 
-      } 
-  }, [isVisualizingHero, visualizingItem, equipment, inventory]);
 
   // Global Touch Handler to clear Tooltips on mobile interaction with background
   useEffect(() => {
@@ -1055,7 +1019,6 @@ export default function App() {
       {showSmugglingModal && <SmugglingModal gold={gold} onPurchase={(c) => setGold(p => p - c)} onGenerateLoot={(d) => generateLoot(level, d, stats.magicFind||0)} onClose={() => setShowSmugglingModal(false)} addToInventory={addToInventory} />}
       {showSkillsModal && <SkillsModal passiveSkills={passiveSkills} activeEffects={activeEffects} equippedSkillIds={equippedSkillIds} buildLoadouts={buildLoadouts} playerStats={stats} onEquip={handleEquipSkill} onUnequip={handleUnequipSkill} onUnlockTreeSkill={handleUnlockTreeSkill} onSaveBuild={handleSaveBuild} onLoadBuild={handleLoadBuild} onRespecAttributes={handleRespecAttributes} onClose={() => setShowSkillsModal(false)} />}
       {showStatsModal && <StatsModal stats={stats} baseAttributes={baseAttributes} statPoints={statPoints} passiveSkills={passiveSkills} onAllocate={handleAllocatePoint} onClose={() => setShowStatsModal(false)} />}
-      {(visualizingItem || isVisualizingHero) && <VisualizerModal target={isVisualizingHero ? { name: "Hero", type: "Hero", imageUrl: heroImageUrl, icon: "hero" } : visualizingItem} onSave={handleSaveVisual} onClose={() => { setVisualizingItem(null); setIsVisualizingHero(false); }} />}
       {showSystemModal && <SystemModal currentSlotId={currentSlotId} onSave={handleSaveGame} onQuit={() => setGameStatus('MENU')} onOpenBalance={() => setShowBalanceModal(true)} onClose={() => setShowSystemModal(false)} />}
       {showBalanceModal && <BalanceDashboard playerStats={stats} currentLevel={level} onClose={() => setShowBalanceModal(false)} />}
       
@@ -1263,7 +1226,6 @@ export default function App() {
            <div className="h-11 lg:h-16 shrink-0 border-b border-stone-800 flex items-center justify-between px-2.5 lg:px-4 bg-stone-950/50 gap-1">
                <h2 className="text-stone-300 diablo-font text-sm lg:text-xl truncate">Inventory</h2>
                <div className="flex gap-1 shrink-0 items-center">
-                    <button onClick={() => setIsVisualizeMode(!isVisualizeMode)} className={`w-7 h-7 lg:w-9 lg:h-9 rounded flex items-center justify-center border transition-all text-xs lg:text-sm ${isVisualizeMode ? 'bg-purple-900/50 border-purple-500 text-purple-300' : 'bg-stone-900 border-stone-700 text-stone-500 hover:text-stone-300'}`}>👁️</button>
                     <button 
                         onClick={handleIdentifyAll} 
                         disabled={unIDCount === 0} 
@@ -1301,7 +1263,6 @@ export default function App() {
                         onDragStart={(e) => item && handleDragStart(e, 'inventory', idx)} 
                         onDragOver={handleDragOver} 
                         onDrop={(e) => handleDrop(e, 'inventory', idx)} 
-                        isVisualizeMode={isVisualizeMode} 
                       />
                   ))}
                </div>

@@ -15,7 +15,6 @@ interface InventorySlotProps {
   onDragOver?: (e: React.DragEvent) => void;
   onDrop?: (e: React.DragEvent) => void;
 
-  isVisualizeMode?: boolean;
   isActive?: boolean; // For equipment slots or selected items
 }
 
@@ -28,7 +27,6 @@ const InventorySlot: React.FC<InventorySlotProps> = ({
   onDragStart,
   onDragOver,
   onDrop,
-  isVisualizeMode,
   isActive
 }) => {
   
@@ -81,7 +79,7 @@ const InventorySlot: React.FC<InventorySlotProps> = ({
             : `bg-[#050505] border border-stone-800 inner-shadow hover:border-stone-600 ${isActive ? 'border-stone-500 bg-stone-800' : ''}`
         }
         rounded-[4px]
-        ${isVisualizeMode && item ? 'cursor-help ring-2 ring-purple-500 animate-pulse' : item ? 'cursor-pointer' : ''}
+        ${item ? 'cursor-pointer' : ''}
         ${isActive ? 'ring-1 ring-white/20' : ''}
       `}
       onClick={onClick}
@@ -122,13 +120,6 @@ const InventorySlot: React.FC<InventorySlotProps> = ({
                  <span className="text-red-400 text-[9px] font-bold leading-none animate-pulse">?</span>
                </div>
              </>
-           )}
-           
-           {/* Visualize Mode Overlay */}
-           {isVisualizeMode && (
-               <div className="absolute inset-0 bg-purple-500/30 z-30 flex items-center justify-center backdrop-blur-[1px] rounded-[3px]">
-                   <span className="text-xs animate-bounce">🔮</span>
-               </div>
            )}
         </div>
       )}

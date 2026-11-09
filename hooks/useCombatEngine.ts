@@ -2,7 +2,6 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Monster, PlayerStats, CombatStatusEffect, ActiveEffect, CombatStance, CombatTrigger, LogEntry, TerrainType, PassiveSkill } from '../types';
 import { COMPOSITE_SYNERGIES, PASSIVE_SET_BONUSES, PASSIVE_SKILLS_POOL } from '../constants';
 import { BALANCE } from '../services/gameBalance';
-import { generateCombatNarrative, generateEncounterDescription } from '../services/geminiService';
 
 interface UseCombatEngineProps {
   playerStats: PlayerStats | null;
@@ -204,10 +203,6 @@ export const useCombatEngine = ({
         if (battleStartEffects.length > 0) {
             setCombatStatusEffects(prev => applyStatusEffects(prev, battleStartEffects));
         }
-    }
-    
-    if (monsters.length === 1) {
-        generateEncounterDescription(monsters[0], level).then(addToCombatLog);
     }
   }, [playerStats, setPlayerHp, environment]);
 
@@ -702,7 +697,6 @@ export const useCombatEngine = ({
         if (isCrit) {
             addToCombatLog(`CRITICAL! ${targetMonster.name} takes ${dmg}!`);
             processTriggers('onCrit', 'player', dmg, targetIndex);
-            generateCombatNarrative(targetMonster.name, 'Attack', 'crit').then(t => addToCombatLog(`> ${t}`));
         } else addToCombatLog(`Hit ${targetMonster.name} for ${dmg}.`);
 
         let lifeStealVal = playerStats.lifeSteal;
