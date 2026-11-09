@@ -4,6 +4,8 @@ import { Monster, PlayerStats, CombatStatusEffect, ActiveEffect, CombatStance, M
 import { BALANCE } from '../services/gameBalance';
 import { TERRAIN_BATTLEBACKS, DEFAULT_HERO_AVATAR } from '../services/spriteCatalog';
 import GameIcon from './GameIcon';
+import { EnemyInspectModal } from './EnemyInspectModal';
+import { HeroCombatStatsModal } from './HeroCombatStatsModal';
 
 interface CombatModalProps {
   playerStats: PlayerStats;
@@ -242,6 +244,8 @@ const CombatModal: React.FC<CombatModalProps> = ({
   const prevPlayerHp = useRef(playerHp);
   const prevMonsterHps = useRef<Record<string, number>>({});
   const [hoveredEffect, setHoveredEffect] = useState<{ effect: AnyEffect; rect: DOMRect } | null>(null);
+  const [showEnemyInspect, setShowEnemyInspect] = useState<boolean>(false);
+  const [showHeroStats, setShowHeroStats] = useState<boolean>(false);
 
   const handleEffectHover = (e: React.MouseEvent<HTMLDivElement>, effect: AnyEffect) => {
       if (hoveredEffect?.effect === effect) return;
@@ -371,8 +375,19 @@ const CombatModal: React.FC<CombatModalProps> = ({
                         {heroFloats.map(f => <FloatingText key={f.id} num={f} />)}
                     </div>
                     
-                    <div className="flex-grow w-full space-y-1 lg:space-y-3 min-w-0 pt-2 sm:pt-1">
-                        <HealthBar current={playerHp} max={playerStats.maxHp} label="HERO" />
+                    <div className="flex-grow w-full space-y-1 lg:space-y-2 min-w-0 pt-2 sm:pt-1">
+                        <div className="flex items-center justify-between gap-1 mb-0.5">
+                            <span className="text-[9px] lg:text-[10px] font-bold text-stone-400 font-mono uppercase tracking-wider">HERO</span>
+                            <button
+                                onClick={() => setShowHeroStats(true)}
+                                className="px-2 py-0.5 bg-stone-900/90 hover:bg-stone-800 border border-amber-600/70 hover:border-amber-400 text-amber-400 text-[9px] lg:text-[10px] font-mono font-bold rounded shadow flex items-center gap-1 transition-all cursor-pointer active:scale-95 shrink-0"
+                                title="Inspect Hero Live Combat Stats"
+                            >
+                                <span>📊</span>
+                                <span>Stats</span>
+                            </button>
+                        </div>
+                        <HealthBar current={playerHp} max={playerStats.maxHp} />
                         <div className="flex gap-2 justify-between">
                             <StatPlate label="Dmg" value={playerStats.damage} icon="⚔️" />
                             <StatPlate label="Arm" value={playerStats.armor} icon="🛡️" />
@@ -421,7 +436,18 @@ const CombatModal: React.FC<CombatModalProps> = ({
                     
                     {/* Multi-Enemy Layout */}
                     {isMulti ? (
-                        <div className="flex flex-col gap-1.5 lg:gap-2 w-full max-h-full overflow-y-auto no-scrollbar py-0.5">
+                        <div className="flex flex-col gap-1 lg:gap-1.5 w-full max-h-full overflow-y-auto no-scrollbar py-0.5">
+                            <div className="flex items-center justify-between px-1 pb-1 border-b border-stone-800/80 mb-0.5 shrink-0">
+                                <span className="text-[9px] lg:text-[10px] text-stone-500 font-bold uppercase tracking-wider">Target Focus</span>
+                                <button
+                                    onClick={() => setShowEnemyInspect(true)}
+                                    className="px-2 py-0.5 bg-stone-900/90 hover:bg-stone-800 border border-red-600/70 hover:border-red-400 text-red-300 text-[9px] lg:text-[10px] font-mono font-bold rounded shadow flex items-center gap-1 transition-all cursor-pointer active:scale-95 shrink-0"
+                                    title="Inspect Enemy Intel & Codex"
+                                >
+                                    <span>🔍</span>
+                                    <span>Codex</span>
+                                </button>
+                            </div>
                             {monsters.map((m, idx) => {
                                 const isDead = m.currentHp <= 0;
                                 const isTarget = m === targetMonster;
@@ -481,8 +507,21 @@ const CombatModal: React.FC<CombatModalProps> = ({
                                 {enemyFloats.map(f => <FloatingText key={f.id} num={f} />)}
                             </div>
                             
-                            <div className="flex-grow w-full space-y-1 lg:space-y-3 min-w-0 text-right sm:text-left pt-2 sm:pt-1">
-                                <HealthBar current={targetMonster.currentHp} max={targetMonster.maxHp} isEnemy label={targetMonster.rarity} />
+                            <div className="flex-grow w-full space-y-1 lg:space-y-2 min-w-0 text-right sm:text-left pt-2 sm:pt-1">
+                                <div className="flex items-center justify-between gap-2 mb-0.5 flex-row-reverse sm:flex-row">
+                                    <button
+                                        onClick={() => setShowEnemyInspect(true)}
+                                        className="px-2 py-0.5 bg-stone-900/90 hover:bg-stone-800 border border-red-600/70 hover:border-red-400 text-red-300 text-[9px] lg:text-[10px] font-mono font-bold rounded shadow flex items-center gap-1 transition-all cursor-pointer active:scale-95 shrink-0"
+                                        title="Inspect Enemy Intel & Codex"
+                                    >
+                                        <span>🔍</span>
+                                        <span>Codex</span>
+                                    </button>
+                                    <span className="text-[9px] lg:text-[10px] font-bold text-stone-400 font-mono uppercase tracking-wider">
+                                        {targetMonster.rarity} {targetMonster.isBoss ? '• BOSS' : ''}
+                                    </span>
+                                </div>
+                                <HealthBar current={targetMonster.currentHp} max={targetMonster.maxHp} isEnemy />
                                 <div className="flex gap-2 justify-between flex-row-reverse sm:flex-row">
                                     <StatPlate label="Dmg" value={targetMonster.damage} icon="⚔️" color="text-red-400" />
                                     <StatPlate label="Arm" value={targetMonster.armor} icon="🛡️" />
@@ -505,6 +544,31 @@ const CombatModal: React.FC<CombatModalProps> = ({
                 </div>
            </div>
        </div>
+
+       {/* Enemy Codex / Intel Modal */}
+       {showEnemyInspect && (
+         <EnemyInspectModal
+           monsters={monsters}
+           initialTargetId={targetMonster?.id}
+           playerLevel={playerStats.level}
+           combatStatusEffects={combatStatusEffects}
+           terrain={terrain}
+           onSelectTarget={onSelectTarget}
+           onClose={() => setShowEnemyInspect(false)}
+         />
+       )}
+
+       {/* Hero Tactical Combat Stats Modal */}
+       {showHeroStats && (
+         <HeroCombatStatsModal
+           playerStats={playerStats}
+           playerHp={playerHp}
+           combatStance={combatStance}
+           combatStatusEffects={combatStatusEffects}
+           activeEffects={activeEffects}
+           onClose={() => setShowHeroStats(false)}
+         />
+       )}
     </div>
   );
 };
