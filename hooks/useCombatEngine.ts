@@ -112,6 +112,16 @@ export const useCombatEngine = ({
     combatStanceRef.current = combatStance;
   }, [combatStance]);
 
+  const activeMonstersRef = useRef<Monster[]>(activeMonsters);
+  useEffect(() => {
+    activeMonstersRef.current = activeMonsters;
+  }, [activeMonsters]);
+
+  const playerHpRef = useRef<number>(playerHp);
+  useEffect(() => {
+    playerHpRef.current = playerHp;
+  }, [playerHp]);
+
   const actionIntervalRef = useRef<any>(null);
   const turnTimeoutRef = useRef<any>(null);
 
@@ -129,7 +139,9 @@ export const useCombatEngine = ({
   const startBattle = useCallback(async (monsters: Monster[], level: number) => {
     if (!playerStats) return;
     setActiveMonsters(monsters);
+    activeMonstersRef.current = monsters;
     setPlayerHp(playerStats.maxHp);
+    playerHpRef.current = playerStats.maxHp;
     
     // Average enemy dexterity for turn calculation
     const avgEnemyDex = monsters.reduce((sum, m) => sum + m.dexterity, 0) / monsters.length;
@@ -514,11 +526,10 @@ export const useCombatEngine = ({
       return triggerDamage;
   };
 
-  const processCombatEffects = (target: 'player' | 'enemy') => {
-      if (activeMonsters.length === 0 || !playerStats) return;
+  const processCombatEffects = (target: 'player' | 'enemy'): number | Monster[] => {
+      if (activeMonstersRef.current.length === 0 || !playerStats) return target === 'player' ? playerHpRef.current : activeMonstersRef.current;
       
-      let newPlayerHp = playerHp;
-      const monsterUpdates: { id: string, hp: number }[] = [];
+      let newPlayerHp = playerHpRef.current;
       const effectsToRemoveIds: string[] = [];
 
       // Player Effects
@@ -542,12 +553,15 @@ export const useCombatEngine = ({
               }
               effectsToRemoveIds.push(effect.id); // Mark for duration decrement
           });
+          newPlayerHp = Math.max(0, newPlayerHp);
+          playerHpRef.current = newPlayerHp;
           setPlayerHp(newPlayerHp);
       } 
       // Enemy Effects (Iterate through all monsters)
       else {
-          activeMonsters.forEach(m => {
-              if (m.currentHp <= 0) return;
+          const currentList = activeMonstersRef.current;
+          const nextList = currentList.map(m => {
+              if (m.currentHp <= 0) return m;
               let hp = m.currentHp;
               // Filter effects targeting THIS monster
               const effects = combatStatusEffects.filter(e => e.target === 'enemy' && (e as any).targetId === m.id);
@@ -559,21 +573,15 @@ export const useCombatEngine = ({
                   if (effect.type === 'burn' || effect.type === 'poison') {
                       const spellMultiplier = effect.source !== 'maledict' ? (1 + (playerStats.spellPower || 0) / 100) : 1;
                       const dot = Math.max(1, Math.floor(m.maxHp * baseVal * stacks * spellMultiplier));
-                      hp -= dot;
+                      hp = Math.max(0, hp - dot);
                       addToCombatLog(`${m.name} takes ${dot} ${effect.type} dmg.`);
                   }
-                  // Enemy regen?
                   effectsToRemoveIds.push(effect.id);
               });
-              if (hp !== m.currentHp) monsterUpdates.push({ id: m.id, hp });
+              return { ...m, currentHp: hp };
           });
-
-          if (monsterUpdates.length > 0) {
-              setActiveMonsters(prev => prev.map(m => {
-                  const update = monsterUpdates.find(u => u.id === m.id);
-                  return update ? { ...m, currentHp: update.hp } : m;
-              }));
-          }
+          activeMonstersRef.current = nextList;
+          setActiveMonsters(nextList);
       }
       
       // Decrement durations for the processed effects
@@ -585,11 +593,13 @@ export const useCombatEngine = ({
           }
           return { ...e, duration: e.duration - 1 };
       }).filter(e => e.duration > 0));
+
+      return target === 'player' ? newPlayerHp : activeMonstersRef.current;
   };
 
   // --- TURN RESOLUTION ---
   const resolveCombatTurn = (overrideStance?: CombatStance) => {
-    if (activeMonsters.length === 0 || !playerStats) return;
+    if (activeMonstersRef.current.length === 0 || !playerStats) return;
     
     // Decrease skill cooldowns
     setSkillCooldowns(prev => {
@@ -604,32 +614,39 @@ export const useCombatEngine = ({
     const isFrozen = combatStatusEffects.some(e => e.target === 'player' && (e.type === 'freeze' || e.type === 'stun'));
     if (isFrozen) {
         addToCombatLog("You are Frozen/Stunned and cannot act!");
-        processCombatEffects('player');
+        const hpAfterDot = (processCombatEffects('player') as number) ?? playerHpRef.current;
+        if (hpAfterDot <= 0) {
+            handleDefeatInternal();
+        }
         return;
     }
 
     const synergyDmg = processTriggers('onStartTurn', 'player');
-    processCombatEffects('player');
+    const hpAfterDot = (processCombatEffects('player') as number) ?? playerHpRef.current;
 
+    let currentHeroHp = hpAfterDot;
     // Vitality Health Regeneration: Turn-based sustained defense
-    if ((playerStats.healthRegen || 0) > 0 && playerHp < playerStats.maxHp) {
-        const regenAmt = Math.min(playerStats.healthRegen || 1, playerStats.maxHp - playerHp);
-        setPlayerHp(p => Math.min(playerStats.maxHp, p + regenAmt));
+    if ((playerStats.healthRegen || 0) > 0 && currentHeroHp < playerStats.maxHp && currentHeroHp > 0) {
+        const regenAmt = Math.min(playerStats.healthRegen || 1, playerStats.maxHp - currentHeroHp);
+        currentHeroHp = Math.min(playerStats.maxHp, currentHeroHp + regenAmt);
+        playerHpRef.current = currentHeroHp;
+        setPlayerHp(currentHeroHp);
         addToCombatLog(`💚 Vitality: Hero regenerates +${regenAmt} HP.`);
     }
     
-    if (playerHp <= 0) { handleDefeatInternal(); return; }
+    if (currentHeroHp <= 0) { handleDefeatInternal(); return; }
 
+    const liveMonsters = activeMonstersRef.current;
     // TARGETING: User-selected target if alive, otherwise first living monster
-    let targetIndex = activeMonsters.findIndex(m => m.id === selectedTargetId && m.currentHp > 0);
+    let targetIndex = liveMonsters.findIndex(m => m.id === selectedTargetId && m.currentHp > 0);
     if (targetIndex === -1) {
-        targetIndex = activeMonsters.findIndex(m => m.currentHp > 0);
+        targetIndex = liveMonsters.findIndex(m => m.currentHp > 0);
     }
     if (targetIndex === -1) {
-        handleVictoryInternal(activeMonsters);
+        handleVictoryInternal(liveMonsters);
         return;
     }
-    const targetMonster = activeMonsters[targetIndex];
+    const targetMonster = liveMonsters[targetIndex];
 
     // Check for Arcane Shield on Target
     const isShielded = combatStatusEffects.some(e => e.target === 'enemy' && (e as any).targetId === targetMonster.id && e.type === 'shield');
@@ -716,20 +733,23 @@ export const useCombatEngine = ({
     } else {
         // Cleave / Splash Damage on Overkill: 50% of overkill transfers to next living monster
         const overkill = dmg - monsterHp;
-        monsterHp -= dmg;
+        monsterHp = Math.max(0, monsterHp - dmg);
 
-        if (overkill > 0 && activeMonsters.length > 1) {
-            const nextTargetIdx = activeMonsters.findIndex((m, i) => i !== targetIndex && m.currentHp > 0);
+        const currentMonsters = [...activeMonstersRef.current];
+
+        if (overkill > 0 && currentMonsters.length > 1) {
+            const nextTargetIdx = currentMonsters.findIndex((m, i) => i !== targetIndex && m.currentHp > 0);
             if (nextTargetIdx >= 0) {
                 const splashDmg = Math.max(1, Math.floor(overkill * 0.5));
-                const splashTarget = activeMonsters[nextTargetIdx];
-                activeMonsters[nextTargetIdx] = { ...splashTarget, currentHp: Math.max(0, splashTarget.currentHp - splashDmg) };
+                const splashTarget = currentMonsters[nextTargetIdx];
+                const splashRemainingHp = Math.max(0, splashTarget.currentHp - splashDmg);
+                currentMonsters[nextTargetIdx] = { ...splashTarget, currentHp: splashRemainingHp };
                 addToCombatLog(`💥 Cleave! Overkill deals ${splashDmg} splash dmg to ${splashTarget.name}!`);
             }
         }
 
         const onHitDmg = processTriggers('onHit', 'player', dmg, targetIndex);
-        monsterHp -= onHitDmg;
+        monsterHp = Math.max(0, monsterHp - onHitDmg);
         
         if (isCrit) {
             addToCombatLog(`CRITICAL! ${targetMonster.name} takes ${dmg}!`);
@@ -746,7 +766,9 @@ export const useCombatEngine = ({
             const effectiveDmg = Math.min(dmg, Math.max(0, targetMonster.currentHp));
             const heal = Math.floor(effectiveDmg * (lifeStealVal / 100));
             if (heal > 0) {
-                setPlayerHp(p => Math.min(playerStats.maxHp, p + heal));
+                currentHeroHp = Math.min(playerStats.maxHp, currentHeroHp + heal);
+                playerHpRef.current = currentHeroHp;
+                setPlayerHp(currentHeroHp);
             }
         }
 
@@ -755,9 +777,11 @@ export const useCombatEngine = ({
             const maxThornCap = Math.max(5, Math.floor(playerStats.maxHp * 0.15));
             const rawThorn = Math.max(1, Math.floor(dmg * (targetMonster.thorns / 100)));
             const thorn = Math.min(maxThornCap, rawThorn);
-            setPlayerHp(p => Math.max(0, p - thorn));
+            currentHeroHp = Math.max(0, currentHeroHp - thorn);
+            playerHpRef.current = currentHeroHp;
+            setPlayerHp(currentHeroHp);
             addToCombatLog(`🌵 Thorns: ${targetMonster.name} reflects ${thorn} dmg!`);
-            if (playerHp - thorn <= 0) {
+            if (currentHeroHp <= 0) {
                 handleDefeatInternal();
                 return;
             }
@@ -765,8 +789,9 @@ export const useCombatEngine = ({
     }
 
     // Update active monsters state
-    const nextMonsters = [...activeMonsters];
+    const nextMonsters = [...activeMonstersRef.current];
     nextMonsters[targetIndex] = { ...targetMonster, currentHp: monsterHp };
+    activeMonstersRef.current = nextMonsters;
     setActiveMonsters(nextMonsters);
 
     if (nextMonsters.every(m => m.currentHp <= 0)) {
@@ -776,19 +801,23 @@ export const useCombatEngine = ({
   };
 
   const executeEnemyTurn = () => {
-      if (activeMonsters.length === 0 || !playerStats) return;
+      if (activeMonstersRef.current.length === 0 || !playerStats) return;
 
       // Group Attack Phase
       processTriggers('onStartTurn', 'enemy');
-      processCombatEffects('enemy'); // Enemy DoTs tick here
+      const updatedMonstersAfterDot = (processCombatEffects('enemy') as Monster[]) || activeMonstersRef.current;
 
       // Check victory after DoTs
-      if (activeMonsters.every(m => m.currentHp <= 0)) { handleVictoryInternal(activeMonsters); return; }
+      if (updatedMonstersAfterDot.every(m => m.currentHp <= 0)) { 
+          handleVictoryInternal(updatedMonstersAfterDot); 
+          return; 
+      }
 
-      // Loop through all ALIVE enemies
+      let workingMonsters = [...updatedMonstersAfterDot];
+      let currentHeroHp = playerHpRef.current;
       let totalDmgTaken = 0;
 
-      activeMonsters.forEach(monster => {
+      workingMonsters.forEach((monster, mIdx) => {
           if (monster.currentHp <= 0) return;
 
           const isStunned = combatStatusEffects.some(e => e.target === 'enemy' && (e as any).targetId === monster.id && (e.type === 'stun' || e.type === 'freeze'));
@@ -807,7 +836,8 @@ export const useCombatEngine = ({
               addToCombatLog(`Dodged ${monster.name}'s attack!`);
               if ((playerStats.thorns || 0) > 0) {
                   const dodgeReflect = Math.max(1, Math.floor((playerStats.thorns || 0) * 0.5));
-                  setActiveMonsters(prev => prev.map(m => m.id === monster.id ? { ...m, currentHp: Math.max(0, m.currentHp - dodgeReflect) } : m));
+                  const newHp = Math.max(0, monster.currentHp - dodgeReflect);
+                  workingMonsters[mIdx] = { ...monster, currentHp: newHp };
                   addToCombatLog(`💨 Retaliation: Dodged and reflected ${dodgeReflect} thorn dmg to ${monster.name}!`);
               }
               return;
@@ -816,7 +846,7 @@ export const useCombatEngine = ({
           let dmg = monster.damage * (0.8 + Math.random() * 0.4);
           
           if (monster.maledicts.some(m => m.id === 'executioner')) {
-               if (playerHp < playerStats.maxHp * 0.3) {
+               if (currentHeroHp < playerStats.maxHp * 0.3) {
                     dmg *= 2;
                     addToCombatLog("🪓 Executioner: DOUBLE DAMAGE!");
                }
@@ -850,7 +880,7 @@ export const useCombatEngine = ({
           const shouldRotate = Math.random() < 0.45;
           const nextStance = shouldRotate ? otherStances[Math.floor(Math.random() * otherStances.length)] : enemyStance;
           const nextHidden = monster.rarity === 'Unique' ? (Math.random() < 0.6) : monster.isStanceHidden;
-          setActiveMonsters(prev => prev.map(m => m.id === monster.id ? { ...m, currentStance: nextStance, isStanceHidden: nextHidden } : m));
+          workingMonsters[mIdx] = { ...workingMonsters[mIdx], currentStance: nextStance, isStanceHidden: nextHidden };
           
           // Check for Player Shield
           const playerShield = combatStatusEffects.find(e => e.target === 'player' && e.type === 'shield');
@@ -859,25 +889,31 @@ export const useCombatEngine = ({
               addToCombatLog(`🛡️ Shield blocked ${monster.name}!`);
               setCombatStatusEffects(prev => prev.filter(e => !(e.target === 'player' && e.type === 'shield')));
           } else {
-              setPlayerHp(p => p - final);
+              currentHeroHp = Math.max(0, currentHeroHp - final);
               totalDmgTaken += final;
-              processTriggers('onHit', 'enemy', final, activeMonsters.indexOf(monster)); 
-              processTriggers('onTakeDamage', 'player', final, activeMonsters.indexOf(monster));
+              processTriggers('onHit', 'enemy', final, mIdx); 
+              processTriggers('onTakeDamage', 'player', final, mIdx);
 
               // Player Thorns: Synergizes with raw incoming damage (pre-mitigation) + 5% armor bonus
               if ((playerStats.thorns || 0) > 0) {
                   const armorBonus = Math.floor(playerStats.armor * 0.05);
                   const reflected = Math.max(1, Math.floor(dmg * ((playerStats.thorns || 0) / 100)) + armorBonus);
-                  setActiveMonsters(prev => prev.map(m => m.id === monster.id ? { ...m, currentHp: Math.max(0, m.currentHp - reflected) } : m));
+                  const newHp = Math.max(0, workingMonsters[mIdx].currentHp - reflected);
+                  workingMonsters[mIdx] = { ...workingMonsters[mIdx], currentHp: newHp };
                   addToCombatLog(`🌵 Thorns reflects ${reflected} dmg to ${monster.name}!`);
               }
           }
 
           if (monster.lifeSteal > 0 && final > 0) {
               const heal = Math.floor(final * (monster.lifeSteal/100));
-              // Update local ref to monster for lifesteal visual (will be batched in next render)
+              workingMonsters[mIdx] = { ...workingMonsters[mIdx], currentHp: Math.min(workingMonsters[mIdx].maxHp, workingMonsters[mIdx].currentHp + heal) };
           }
       });
+
+      playerHpRef.current = currentHeroHp;
+      setPlayerHp(currentHeroHp);
+      activeMonstersRef.current = workingMonsters;
+      setActiveMonsters(workingMonsters);
 
       // Decrement player defensive reaction buffs (shield, dodge_boost) on enemy turn completion
       setCombatStatusEffects(prev => prev.map(e => {
@@ -889,7 +925,16 @@ export const useCombatEngine = ({
 
       if (totalDmgTaken > 0) addToCombatLog(`Took ${totalDmgTaken} total damage.`);
       
-      if (playerHp - totalDmgTaken <= 0) handleDefeatInternal();
+      // Check victory if all enemies died from Thorns reflection or DoTs
+      if (workingMonsters.every(m => m.currentHp <= 0)) {
+          handleVictoryInternal(workingMonsters);
+          return;
+      }
+
+      if (currentHeroHp <= 0) {
+          handleDefeatInternal();
+          return;
+      }
   };
 
   const handleVictoryInternal = (monsters: Monster[]) => {
@@ -924,7 +969,7 @@ export const useCombatEngine = ({
 
   // --- COMBAT LOOP WITH ACTION TIMER ---
   useEffect(() => {
-    if (!isFighting || activeMonsters.length === 0 || !playerStats) {
+    if (!isFighting || activeMonstersRef.current.length === 0 || !playerStats) {
       if (actionIntervalRef.current) {
         clearInterval(actionIntervalRef.current);
         actionIntervalRef.current = null;
@@ -990,7 +1035,7 @@ export const useCombatEngine = ({
         }
       };
     }
-  }, [isFighting, activeMonsters, turnQueue, playerHp]);
+  }, [isFighting, turnQueue]);
 
   // Direct Stance Trigger (Player clicks one of the triad buttons during action timer)
   const executeStanceAction = useCallback((chosenStance: CombatStance) => {

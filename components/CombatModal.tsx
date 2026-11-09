@@ -70,7 +70,7 @@ const HealthBar: React.FC<{ current: number; max: number; isEnemy?: boolean; lab
               <div className="absolute inset-0 bg-gradient-to-b from-white/10 to-transparent"></div>
           </div>
           <div className="absolute inset-0 flex items-center justify-center text-[9px] lg:text-xs font-bold text-white drop-shadow-[0_1px_2px_rgba(0,0,0,1)] z-10 font-mono tracking-widest">
-             {Math.ceil(current)} / {max}
+             {Math.max(0, Math.ceil(current))} / {max}
           </div>
        </div>
        {label && <div className={`absolute -top-3 lg:-top-4 ${isEnemy ? 'right-0' : 'left-0'} text-[8px] lg:text-[10px] font-bold text-stone-500 uppercase tracking-widest bg-black/40 px-1 rounded`}>{label}</div>}

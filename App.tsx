@@ -152,6 +152,8 @@ export default function App() {
           : [DEFAULT_TITLE_ID, grandfatheredId];
       setUnlockedTitleIds(initialUnlocked);
       setActiveTitleId(data.activeTitleId || grandfatheredId || DEFAULT_TITLE_ID);
+      const loadedHp = 100 + (data.baseAttributes.vitality * 8) + (data.level * BALANCE.STATS.perLevel.hp);
+      setPlayerCurrentHp(loadedHp);
       
       setCurrentSlotId(slotId);
       setGameStatus('PLAYING');
@@ -1177,7 +1179,7 @@ export default function App() {
                 <div className="shrink-0 h-11 lg:h-16 bg-black/40 border border-stone-800 rounded flex items-center px-2 gap-1.5 overflow-x-auto custom-scrollbar">
                    <span className="text-[9px] lg:text-[10px] text-stone-500 uppercase font-bold mr-1 shrink-0">Ground:</span>
                    {groundItems.map((i,idx) => (
-                     <div key={idx} onClick={() => { addToInventory(i); setGroundItems(g => g.filter((_,ix) => ix !== idx)); }} className="shrink-0 scale-90 cursor-pointer hover:scale-100 transition-transform">
+                     <div key={idx} onClick={() => { if (addToInventory(i)) { setGroundItems(g => g.filter((_,ix) => ix !== idx)); } }} className="shrink-0 scale-90 cursor-pointer hover:scale-100 transition-transform">
                        <InventorySlot item={i} onClick={()=>{}} onRightClick={()=>{}} setHoverItem={()=>{}} />
                      </div>
                    ))}
@@ -1281,11 +1283,11 @@ export default function App() {
                        <div className="bg-black/40 border border-stone-800 rounded p-1.5 lg:p-2 flex flex-col gap-1.5 lg:gap-2">
                             <div className="grid grid-cols-5 gap-1 justify-items-center">
                                 {sellStaging.map((i, idx) => (
-                                    <div key={idx} onClick={() => { const n = [...sellStaging]; n.splice(idx, 1); setSellStaging(n); addToInventory(i); }}>
+                                    <div key={idx} onClick={() => { if (addToInventory(i)) { const n = [...sellStaging]; n.splice(idx, 1); setSellStaging(n); } }}>
                                         <InventorySlot 
                                             item={i} 
                                             onClick={()=>{}} 
-                                            onRightClick={() => { const n = [...sellStaging]; n.splice(idx, 1); setSellStaging(n); addToInventory(i); }} 
+                                            onRightClick={() => { if (addToInventory(i)) { const n = [...sellStaging]; n.splice(idx, 1); setSellStaging(n); } }} 
                                             setHoverItem={()=>{}} 
                                         />
                                     </div>

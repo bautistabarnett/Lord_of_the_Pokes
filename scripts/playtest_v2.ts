@@ -108,14 +108,14 @@ const simulateV2Combat = (
   // Equip baseline items
   for (let i = 0; i < equippedItemsCount; i++) {
     const it = generateLoot(playerLevel, 1, 0, Rarity.MAGIC);
-    if (it) equipMap[it.slot] = it;
+    if (it) equipMap[it.type] = it;
   }
   const playerStats = calculatePlayerStats(baseAttr, equipMap, [], playerLevel, 0);
   let playerHp = playerStats.maxHp;
   let playerPotions = 2;
 
   // Generate Monster
-  const monster = generateMonster(playerLevel, 1, monsterRarity);
+  const monster = generateMonster(playerLevel, 1);
   let monsterHp = monster.maxHp;
 
   let turn = 0;
@@ -303,7 +303,7 @@ const simulateDungeonRun = () => {
 
   for (const encounter of roomConfig) {
     const heroStats = calculatePlayerStats(heroBaseAttr, equipped, [], heroLevel, 0);
-    const monster = generateMonster(encounter.lvl, 1, encounter.rarity);
+    const monster = generateMonster(encounter.lvl, 1);
     let monsterHp = monster.maxHp;
     let enemyStance = monster.currentStance || CombatStance.RESOLVE;
     currentHp = heroStats.maxHp;
@@ -366,9 +366,9 @@ const simulateDungeonRun = () => {
     if (drop) {
       inventory.push(drop);
       // Auto-equip if slot empty or better
-      const currentEquip = equipped[drop.slot];
+      const currentEquip = equipped[drop.type];
       if (!currentEquip) {
-        equipped[drop.slot] = drop;
+        equipped[drop.type] = drop;
         logEvents.push(`🎁 Habitación ${encounter.room}: Obtenido y equipado [${drop.rarity}] ${drop.name}`);
       } else {
         logEvents.push(`📦 Habitación ${encounter.room}: Obtenido [${drop.rarity}] ${drop.name}`);
