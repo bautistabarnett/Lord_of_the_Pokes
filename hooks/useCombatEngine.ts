@@ -166,11 +166,12 @@ export const useCombatEngine = ({
         }
     }
 
-    // Trigger onBattleStart item procs (e.g., Bastion / Aegis shields)
+    // Trigger onBattleStart procs (item Bastion / Aegis shields and Mastery Titles)
     if (playerStats.equippedItemProcs && playerStats.equippedItemProcs.length > 0) {
         const battleStartEffects: CombatStatusEffect[] = [];
         playerStats.equippedItemProcs.forEach(itemProc => {
             if (itemProc.proc.trigger === 'onBattleStart' && Math.random() <= itemProc.proc.chance) {
+                const isTitle = itemProc.id.startsWith('title_');
                 if (itemProc.proc.effect.type === 'shield') {
                     battleStartEffects.push({
                         id: `${itemProc.id}-start`,
@@ -179,11 +180,24 @@ export const useCombatEngine = ({
                         duration: itemProc.proc.effect.duration || 3,
                         value: itemProc.proc.effect.value,
                         stacks: 1,
-                        source: 'item',
+                        source: isTitle ? 'skill' : 'item',
                         target: 'player',
                         description: itemProc.proc.description
                     });
                     addToCombatLog(`🛡️ ${itemProc.name}: Bastion ward active!`);
+                } else if (itemProc.proc.effect.type === 'buff' && itemProc.proc.effect.subType) {
+                    battleStartEffects.push({
+                        id: `${itemProc.id}-start`,
+                        type: itemProc.proc.effect.subType as any,
+                        name: itemProc.name,
+                        duration: itemProc.proc.effect.duration || 3,
+                        value: itemProc.proc.effect.value,
+                        stacks: 1,
+                        source: isTitle ? 'skill' : 'item',
+                        target: 'player',
+                        description: itemProc.proc.description
+                    });
+                    addToCombatLog(`✨ ${itemProc.name} empowers you!`);
                 }
             }
         });
@@ -292,6 +306,8 @@ export const useCombatEngine = ({
                           if (cond.type === 'hp_above') return (playerHp / playerStats.maxHp) > Number(cond.value);
                           if (cond.type === 'enemy_hp_below') return targetMonster ? (targetMonster.currentHp / targetMonster.maxHp) < Number(cond.value) : false;
                           if (cond.type === 'turn_count_multiple') return (turnCount % Number(cond.value)) === 0;
+                          if (cond.type === 'has_buff') return combatStatusEffects.some(e => e.target === 'player' && e.type === cond.value);
+                          if (cond.type === 'enemy_has_debuff') return targetMonster ? combatStatusEffects.some(e => e.target === 'enemy' && (e as any).targetId === targetMonster.id && e.type === cond.value) : false;
                           return true;
                       });
                       if (!conditionsMet) return;
@@ -317,7 +333,10 @@ export const useCombatEngine = ({
                        addToCombatLog(`⚔️ ${skill.name}: Echo strike for ${chainedDmg}!`);
                   } 
                   else if (eff.type === 'damage_phys' || eff.type === 'damage_magic') {
-                       const dmg = Math.floor(playerStats.damage * eff.value);
+                       let dmg = Math.floor(playerStats.damage * eff.value);
+                       if (eff.type === 'damage_magic' && (playerStats.spellPower || 0) > 0) {
+                           dmg = Math.floor(dmg * (1 + (playerStats.spellPower || 0) / 100));
+                       }
                        triggerDamage += dmg;
                        // Direct dmg trigger often applies to current target
                        addToCombatLog(`⚡ ${skill.name} triggers for ${dmg} damage!`);

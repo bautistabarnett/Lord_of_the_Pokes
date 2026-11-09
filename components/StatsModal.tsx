@@ -4,6 +4,7 @@ import { PlayerStats, BaseAttributes, PassiveSkill } from '../types';
 import { PASSIVE_THEME_COLORS } from '../constants';
 import GameIcon from './GameIcon';
 import { BaseModal } from './BaseModal';
+import { getTitleById } from '../services/spriteCatalog';
 
 interface StatsModalProps {
   stats: PlayerStats;
@@ -126,6 +127,28 @@ const StatsModal: React.FC<StatsModalProps> = ({
                         {stats.xp} / {stats.xpToNextLevel} XP
                     </div>
                 </div>
+
+                {/* Mastery Title Card */}
+                {stats.activeTitleId && (() => {
+                    const title = getTitleById(stats.activeTitleId);
+                    if (!title) return null;
+                    return (
+                        <div className="bg-stone-950/70 border border-amber-800/50 rounded-lg p-2.5 lg:p-4 mb-2">
+                            <div className="flex items-center justify-between mb-1.5">
+                                <span className="text-[10px] lg:text-xs font-mono uppercase text-amber-500 font-bold flex items-center gap-1">
+                                    <span>👑</span> Mastery Title: {title.className}
+                                </span>
+                                <span className="text-[9px] lg:text-[10px] font-mono text-stone-400 bg-amber-950/60 border border-amber-900/60 px-1.5 py-0.5 rounded">
+                                    {title.archetype}
+                                </span>
+                            </div>
+                            <div className="text-[11px] lg:text-xs text-stone-300 leading-snug">
+                                <span className="text-amber-400 font-mono text-[10px] uppercase mr-1">[{title.proc.trigger}]</span>
+                                {title.proc.description}
+                            </div>
+                        </div>
+                    );
+                })()}
 
                 {/* Passives Summary */}
                 <div className="bg-stone-950/50 border border-stone-800 rounded-lg p-2.5 lg:p-6 flex-grow">

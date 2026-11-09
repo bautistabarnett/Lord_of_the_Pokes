@@ -1,5 +1,6 @@
 
 import { SaveData, SaveSlotMetadata } from '../types';
+import { getTitleById } from './spriteCatalog';
 
 const STORAGE_KEY_PREFIX = 'loot_game_save_';
 const SLOT_COUNT = 3;
@@ -13,12 +14,13 @@ export const storageService = {
             if (raw) {
                 try {
                     const data = JSON.parse(raw) as SaveData;
+                    const titleName = data.activeTitleId ? getTitleById(data.activeTitleId)?.className : undefined;
                     slots.push({
                         id: i,
                         timestamp: data.timestamp,
                         label: `Level ${data.level} Hero`,
                         isEmpty: false,
-                        heroName: "Wanderer" // Could allow custom names later
+                        heroName: titleName || "Wanderer"
                     });
                 } catch (e) {
                     console.error(`Error reading save slot ${i}`, e);

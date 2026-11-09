@@ -2,7 +2,7 @@ import { Item, ItemSlot, Rarity, StatType, ItemStat, Monster, BaseAttributes, Pa
 import { PASSIVE_SKILLS_POOL, PASSIVE_SET_BONUSES, COMPOSITE_SYNERGIES, MALEDICT_AFFIXES } from '../constants';
 import { BALANCE } from './gameBalance';
 import { IconName } from '../components/GameIcon';
-import { selectMonsterEntry, getMonsterSpritePath } from './spriteCatalog';
+import { selectMonsterEntry, getMonsterSpritePath, HERO_AVATARS } from './spriteCatalog';
 import { selectCatalogItem } from './itemCatalog';
 
 const generateId = () => Math.random().toString(36).substring(2, 9);
@@ -341,7 +341,8 @@ export const calculatePlayerStats = (
   level: number,
   availableStatPoints: number,
   activeEffects: ActiveEffect[] = [],
-  equippedSkillIds: string[] = [] // Optional: if provided, filters passive application
+  equippedSkillIds: string[] = [], // Optional: if provided, filters passive application
+  activeTitleId?: string // Optional: Mastery Title granting a combat trigger
 ): PlayerStats => {
   const { derived, perLevel } = BALANCE.STATS;
   

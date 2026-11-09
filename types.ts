@@ -231,6 +231,7 @@ export interface PlayerStats {
   heroImageUrl?: string; // Custom Hero Avatar
   equippedSkillIds: string[]; // Access to IDs for combat engine
   equippedItemProcs?: { id: string; name: string; proc: SkillProcDefinition }[];
+  activeTitleId?: string; // Mastery Title currently granting its combat trigger
 }
 
 export interface MaledictAffix {
@@ -379,6 +380,10 @@ export interface SaveData {
     merchantStock: Item[];
     groundItems: Item[];
     heroImageUrl?: string;
+    // Mastery Titles (per save slot)
+    bossTrophies?: number;
+    unlockedTitleIds?: string[];
+    activeTitleId?: string;
     timestamp: number;
     // We could save day/night here too, but defaulting to Day on load is fine
 }

@@ -1,33 +1,59 @@
-import { TerrainType, MonsterRarity, Monster } from '../types';
+import { TerrainType, MonsterRarity, Monster, SkillProcDefinition } from '../types';
 
 export interface HeroAvatar {
   id: string;
   name: string;
   className: string;
   imageUrl: string;
+  /** Mastery Title: Boss Trophies needed to unlock (0 = starter title) */
+  trophyCost: number;
+  /** Archetype tag shown in the Mastery Titles UI */
+  archetype: string;
+  /** Combat trigger granted while this title is active (one proc per title) */
+  proc: SkillProcDefinition;
 }
 
 export const HERO_AVATARS: HeroAvatar[] = [
-  { id: 'red', name: 'Red', className: 'Apex Champion', imageUrl: 'assets/heroes/trainer_1.gif' },
-  { id: 'cynthia', name: 'Cynthia', className: 'Abyssal Empress', imageUrl: 'assets/heroes/trainer_143.gif' },
-  { id: 'steven', name: 'Steven', className: 'Steel Aegis Noble', imageUrl: 'assets/heroes/trainer_137.gif' },
-  { id: 'lance', name: 'Lance', className: 'Dragon Warlord', imageUrl: 'assets/heroes/trainer_134.gif' },
-  { id: 'blue', name: 'Blue', className: 'Master Tactician', imageUrl: 'assets/heroes/trainer_2205.gif' },
-  { id: 'hilda', name: 'Hilda', className: 'Vanguard Heroine', imageUrl: 'assets/heroes/trainer_108.gif' },
-  { id: 'hilbert', name: 'Hilbert', className: 'Truth Explorer', imageUrl: 'assets/heroes/trainer_107.gif' },
-  { id: 'ethan', name: 'Ethan', className: 'Solar Knight', imageUrl: 'assets/heroes/trainer_2306.gif' },
-  { id: 'silver', name: 'Silver', className: 'Shadow Rogue', imageUrl: 'assets/heroes/trainer_2305.gif' },
-  { id: 'dawn', name: 'Dawn', className: 'Celestial Mage', imageUrl: 'assets/heroes/trainer_2303.gif' },
-  { id: 'lucas', name: 'Lucas', className: 'Diamond Paladin', imageUrl: 'assets/heroes/trainer_2302.gif' },
-  { id: 'lyra', name: 'Lyra', className: 'Verdant Ranger', imageUrl: 'assets/heroes/trainer_2301.gif' },
-  { id: 'barry', name: 'Barry', className: 'Furious Berserker', imageUrl: 'assets/heroes/trainer_2304.gif' },
-  { id: 'kris', name: 'Kris', className: 'Crystal Priestess', imageUrl: 'assets/heroes/trainer_2307.gif' },
-  { id: 'grimsley', name: 'Grimsley', className: 'Nightshade Warlock', imageUrl: 'assets/heroes/trainer_3002.gif' },
-  { id: 'alder', name: 'Alder', className: 'Primeval Druid', imageUrl: 'assets/heroes/trainer_3008.gif' },
-  { id: 'ash', name: 'Ash', className: 'Aura Master', imageUrl: 'assets/heroes/trainer_4008.gif' },
+  { id: 'red', name: 'Red', className: 'Apex Champion', imageUrl: 'assets/heroes/trainer_1.gif', trophyCost: 0, archetype: 'Warrior',
+    proc: { trigger: 'onStartTurn', chance: 1, cooldown: 0, conditions: [{ type: 'turn_count_multiple', value: 3 }], effect: { type: 'buff', subType: 'scaling_strength', value: 8, duration: 2 }, description: 'Every 3rd turn: +8 flat damage for 2 turns' } },
+  { id: 'cynthia', name: 'Cynthia', className: 'Abyssal Empress', imageUrl: 'assets/heroes/trainer_143.gif', trophyCost: 2, archetype: 'Executioner',
+    proc: { trigger: 'onHit', chance: 0.45, cooldown: 2, conditions: [{ type: 'enemy_hp_below', value: 0.4 }], effect: { type: 'damage_magic', value: 1.6 }, description: '45% on hit vs enemies under 40% HP: abyssal blast (160% dmg, scales with Spell Power)' } },
+  { id: 'steven', name: 'Steven', className: 'Steel Aegis Noble', imageUrl: 'assets/heroes/trainer_137.gif', trophyCost: 1, archetype: 'Guardian',
+    proc: { trigger: 'onBattleStart', chance: 1, cooldown: 0, effect: { type: 'shield', value: 40, duration: 2 }, description: 'Battle start: steel ward absorbs the first enemy blows (2 turns)' } },
+  { id: 'lance', name: 'Lance', className: 'Dragon Warlord', imageUrl: 'assets/heroes/trainer_134.gif', trophyCost: 2, archetype: 'Striker',
+    proc: { trigger: 'onAttack', chance: 0.35, cooldown: 2, conditions: [{ type: 'hp_above', value: 0.5 }], effect: { type: 'damage_phys', value: 0.85 }, description: '35% on attack while above 50% HP: dragon rush (85% bonus dmg)' } },
+  { id: 'blue', name: 'Blue', className: 'Master Tactician', imageUrl: 'assets/heroes/trainer_2205.gif', trophyCost: 1, archetype: 'Controller',
+    proc: { trigger: 'onCrit', chance: 0.4, cooldown: 2, effect: { type: 'debuff', subType: 'stun', value: 1, duration: 1 }, description: '40% on crit: stun the target for 1 turn' } },
+  { id: 'hilda', name: 'Hilda', className: 'Vanguard Heroine', imageUrl: 'assets/heroes/trainer_108.gif', trophyCost: 1, archetype: 'Survivor',
+    proc: { trigger: 'onKill', chance: 1, cooldown: 0, effect: { type: 'heal', value: 0.12 }, description: 'On kill: heal 12% max HP' } },
+  { id: 'hilbert', name: 'Hilbert', className: 'Truth Explorer', imageUrl: 'assets/heroes/trainer_107.gif', trophyCost: 1, archetype: 'Combo',
+    proc: { trigger: 'onHit', chance: 0.35, cooldown: 1, conditions: [{ type: 'enemy_has_debuff', value: 'burn' }], effect: { type: 'damage_magic', value: 1.2 }, description: '35% on hit vs burning enemies: truth flare (120% dmg, scales with Spell Power)' } },
+  { id: 'ethan', name: 'Ethan', className: 'Solar Knight', imageUrl: 'assets/heroes/trainer_2306.gif', trophyCost: 1, archetype: 'Burner',
+    proc: { trigger: 'onHit', chance: 0.35, cooldown: 1, effect: { type: 'debuff', subType: 'burn', value: 0.04, duration: 3 }, description: '35% on hit: solar burn for 3 turns' } },
+  { id: 'silver', name: 'Silver', className: 'Shadow Rogue', imageUrl: 'assets/heroes/trainer_2305.gif', trophyCost: 1, archetype: 'Evasion',
+    proc: { trigger: 'onCrit', chance: 0.5, cooldown: 2, effect: { type: 'buff', subType: 'dodge_boost', value: 30, duration: 2 }, description: '50% on crit: +30% dodge for 2 enemy attacks' } },
+  { id: 'dawn', name: 'Dawn', className: 'Celestial Mage', imageUrl: 'assets/heroes/trainer_2303.gif', trophyCost: 1, archetype: 'Controller',
+    proc: { trigger: 'onHit', chance: 0.3, cooldown: 2, effect: { type: 'debuff', subType: 'freeze', value: 1, duration: 1 }, description: '30% on hit: freeze the target for 1 turn (next hit shatters)' } },
+  { id: 'lucas', name: 'Lucas', className: 'Diamond Paladin', imageUrl: 'assets/heroes/trainer_2302.gif', trophyCost: 1, archetype: 'Survivor',
+    proc: { trigger: 'onTakeDamage', chance: 0.6, cooldown: 3, conditions: [{ type: 'hp_below', value: 0.4 }], effect: { type: 'heal', value: 0.18 }, description: '60% when hit below 40% HP: diamond prayer heals 18% max HP' } },
+  { id: 'lyra', name: 'Lyra', className: 'Verdant Ranger', imageUrl: 'assets/heroes/trainer_2301.gif', trophyCost: 1, archetype: 'Poisoner',
+    proc: { trigger: 'onAttack', chance: 0.4, cooldown: 1, effect: { type: 'debuff', subType: 'poison', value: 0.04, duration: 3 }, description: '40% on attack: venom arrow poisons for 3 turns' } },
+  { id: 'barry', name: 'Barry', className: 'Furious Berserker', imageUrl: 'assets/heroes/trainer_2304.gif', trophyCost: 1, archetype: 'Striker',
+    proc: { trigger: 'onHit', chance: 0.3, cooldown: 1, effect: { type: 'multi_hit', value: 0.6 }, description: '30% on hit: frenzied echo strike for 60% of the damage dealt' } },
+  { id: 'kris', name: 'Kris', className: 'Crystal Priestess', imageUrl: 'assets/heroes/trainer_2307.gif', trophyCost: 1, archetype: 'Sustain',
+    proc: { trigger: 'onStartTurn', chance: 1, cooldown: 3, effect: { type: 'buff', subType: 'regen', value: 0.06, duration: 2 }, description: 'Every 4 turns: crystal regen 6% max HP for 2 turns' } },
+  { id: 'grimsley', name: 'Grimsley', className: 'Nightshade Warlock', imageUrl: 'assets/heroes/trainer_3002.gif', trophyCost: 1, archetype: 'Blood Mage',
+    proc: { trigger: 'onAttack', chance: 0.5, cooldown: 1, cost: { type: 'hp_percent', value: 0.05 }, effect: { type: 'damage_magic', value: 1.8 }, description: '50% on attack: sacrifice 5% HP for a nightshade bolt (180% dmg, scales with Spell Power)' } },
+  { id: 'alder', name: 'Alder', className: 'Primeval Druid', imageUrl: 'assets/heroes/trainer_3008.gif', trophyCost: 1, archetype: 'Last Stand',
+    proc: { trigger: 'onStartTurn', chance: 1, cooldown: 1, conditions: [{ type: 'hp_below', value: 0.5 }], effect: { type: 'buff', subType: 'scaling_strength', value: 12, duration: 1 }, description: 'Below 50% HP: primal fury grants +12 flat damage' } },
+  { id: 'ash', name: 'Ash', className: 'Aura Master', imageUrl: 'assets/heroes/trainer_4008.gif', trophyCost: 2, archetype: 'Critical',
+    proc: { trigger: 'onCrit', chance: 0.4, cooldown: 2, effect: { type: 'buff', subType: 'crit_boost', value: 30, duration: 2 }, description: '40% on crit: aura surge, +30% crit damage for 2 turns' } },
 ];
 
 export const DEFAULT_HERO_AVATAR = HERO_AVATARS[0].imageUrl;
+export const DEFAULT_TITLE_ID = 'red';
+export const getTitleById = (id?: string): HeroAvatar | undefined => HERO_AVATARS.find(a => a.id === id);
+
 
 export const TERRAIN_BATTLEBACKS: Record<TerrainType, string> = {
   [TerrainType.RUINS]: 'assets/battlebacks/ruins.gif',

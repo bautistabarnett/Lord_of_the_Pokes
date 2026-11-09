@@ -22,7 +22,8 @@ import { MainMenu } from './components/MainMenu';
 import SystemModal from './components/SystemModal';
 import BalanceDashboard from './components/BalanceDashboard';
 import { useCombatEngine, generateTurnBatch } from './hooks/useCombatEngine';
-import { HERO_AVATARS, DEFAULT_HERO_AVATAR } from './services/spriteCatalog';
+import { HERO_AVATARS, DEFAULT_HERO_AVATAR, DEFAULT_TITLE_ID, getTitleById } from './services/spriteCatalog';
+import { MasteryTitlesModal } from './components/MasteryTitlesModal';
 import { hydrateLegacyItem } from './services/itemCatalog';
 
 type MobileTab = 'hero' | 'adventure' | 'merchant';
@@ -82,6 +83,11 @@ export default function App() {
   const [heroImageUrl, setHeroImageUrl] = useState<string | undefined>(DEFAULT_HERO_AVATAR);
   const [showHeroClassModal, setShowHeroClassModal] = useState(false);
   const [activeTab, setActiveTab] = useState<MobileTab>('adventure');
+
+  // Mastery Titles (per save slot)
+  const [bossTrophies, setBossTrophies] = useState<number>(0);
+  const [unlockedTitleIds, setUnlockedTitleIds] = useState<string[]>([DEFAULT_TITLE_ID]);
+  const [activeTitleId, setActiveTitleId] = useState<string>(DEFAULT_TITLE_ID);
   
   // New State for Skill Reward
   const [skillReward, setSkillReward] = useState<{ skill: PassiveSkill, isNew: boolean } | null>(null);
@@ -96,11 +102,12 @@ export default function App() {
           level, xp, gold, baseAttributes, statPoints, skillPoints, passiveSkills, activeEffects,
           inventory, equipment, mapNodes, currentAreaId, areaProgress, worldDifficulty,
           merchantStock, groundItems, heroImageUrl, timestamp: Date.now(),
-          equippedSkillIds, buildLoadouts
+          equippedSkillIds, buildLoadouts,
+          bossTrophies, unlockedTitleIds, activeTitleId
       };
       storageService.saveGame(currentSlotId, saveData);
       addLog("Game Saved.", 'system');
-  }, [level, xp, gold, baseAttributes, statPoints, skillPoints, passiveSkills, activeEffects, inventory, equipment, mapNodes, currentAreaId, areaProgress, worldDifficulty, merchantStock, groundItems, heroImageUrl, currentSlotId, equippedSkillIds, buildLoadouts, addLog]);
+  }, [level, xp, gold, baseAttributes, statPoints, skillPoints, passiveSkills, activeEffects, inventory, equipment, mapNodes, currentAreaId, areaProgress, worldDifficulty, merchantStock, groundItems, heroImageUrl, currentSlotId, equippedSkillIds, buildLoadouts, bossTrophies, unlockedTitleIds, activeTitleId, addLog]);
 
   const handleLoadGame = useCallback((slotId: number) => {
       const data = storageService.loadGame(slotId);
@@ -135,6 +142,21 @@ export default function App() {
       setMerchantStock((data.merchantStock || []).map(it => hydrateLegacyItem(it)!).filter(Boolean));
       setGroundItems((data.groundItems || []).map(it => hydrateLegacyItem(it)!).filter(Boolean));
       setHeroImageUrl(data.heroImageUrl || DEFAULT_HERO_AVATAR);
+
+      // Boss Trophies migration
+      const savedTrophies = data.bossTrophies !== undefined 
+          ? data.bossTrophies 
+          : (data.mapNodes ? data.mapNodes.filter(n => n.isCleared).length : 0);
+      setBossTrophies(savedTrophies);
+
+      // Mastery Titles grandfathering migration
+      const matchedAvatar = HERO_AVATARS.find(a => a.imageUrl === data.heroImageUrl);
+      const grandfatheredId = matchedAvatar ? matchedAvatar.id : DEFAULT_TITLE_ID;
+      const initialUnlocked = data.unlockedTitleIds && data.unlockedTitleIds.length > 0
+          ? Array.from(new Set([...data.unlockedTitleIds, DEFAULT_TITLE_ID, grandfatheredId]))
+          : [DEFAULT_TITLE_ID, grandfatheredId];
+      setUnlockedTitleIds(initialUnlocked);
+      setActiveTitleId(data.activeTitleId || grandfatheredId || DEFAULT_TITLE_ID);
       
       setCurrentSlotId(slotId);
       setGameStatus('PLAYING');
@@ -162,6 +184,9 @@ export default function App() {
       setWorldDifficulty(1.0);
       setGroundItems([]);
       setHeroImageUrl(DEFAULT_HERO_AVATAR);
+      setBossTrophies(0);
+      setUnlockedTitleIds([DEFAULT_TITLE_ID]);
+      setActiveTitleId(DEFAULT_TITLE_ID);
       const initialHp = 100 + (BALANCE.STATS.base.vitality * 8) + (1 * BALANCE.STATS.perLevel.hp);
       setPlayerCurrentHp(initialHp);
       setLogs([]);
@@ -183,7 +208,8 @@ export default function App() {
               baseAttributes: { strength: BALANCE.STATS.base.strength, dexterity: BALANCE.STATS.base.dexterity, intelligence: BALANCE.STATS.base.intelligence, vitality: BALANCE.STATS.base.vitality },
               statPoints: 0, skillPoints: 0, passiveSkills: [], activeEffects: [], inventory: Array(MAX_INVENTORY_SIZE).fill(null), equipment: {}, 
               mapNodes: INITIAL_WORLD_MAP, currentAreaId: 'town', areaProgress: 0, worldDifficulty: 1.0, merchantStock: s, groundItems: [], timestamp: Date.now(),
-              equippedSkillIds: [], buildLoadouts: []
+              equippedSkillIds: [], buildLoadouts: [],
+              bossTrophies: 0, unlockedTitleIds: [DEFAULT_TITLE_ID], activeTitleId: DEFAULT_TITLE_ID
            };
            storageService.saveGame(slotId, initialSave);
       }, 100);
@@ -197,9 +223,10 @@ export default function App() {
       level, 
       statPoints, 
       activeEffects,
-      equippedSkillIds
+      equippedSkillIds,
+      activeTitleId
     );
-  }, [baseAttributes, equipment, passiveSkills, level, statPoints, activeEffects, equippedSkillIds]);
+  }, [baseAttributes, equipment, passiveSkills, level, statPoints, activeEffects, equippedSkillIds, activeTitleId]);
 
   const stats: PlayerStats = useMemo(() => ({
     ...derivedStats,
@@ -350,6 +377,39 @@ export default function App() {
       setSkillReward(skillData);
   }, [addLog]);
 
+  const handleUnlockTitle = useCallback((titleId: string) => {
+    const avatar = getTitleById(titleId);
+    if (!avatar) return;
+    if (unlockedTitleIds.includes(titleId)) return;
+    if (bossTrophies < avatar.trophyCost) {
+      addLog(`Not enough Boss Trophies! Need ${avatar.trophyCost}.`, 'system');
+      return;
+    }
+    setBossTrophies(prev => Math.max(0, prev - avatar.trophyCost));
+    setUnlockedTitleIds(prev => [...prev, titleId]);
+    addLog(`👑 Unlocked Mastery Title: ${avatar.className}!`, 'system');
+  }, [unlockedTitleIds, bossTrophies, addLog]);
+
+  const handleEquipTitle = useCallback((titleId: string) => {
+    const avatar = getTitleById(titleId);
+    if (!avatar) return;
+    setActiveTitleId(titleId);
+    addLog(`👑 Equipped Mastery Title: ${avatar.className}`, 'system');
+  }, [addLog]);
+
+  const handleEquipSkin = useCallback((imageUrl: string) => {
+    setHeroImageUrl(imageUrl);
+    const avatar = HERO_AVATARS.find(a => a.imageUrl === imageUrl);
+    addLog(`🧢 Equipped Battle Sprite: ${avatar ? avatar.name : 'Hero'}`, 'system');
+  }, [addLog]);
+
+  const handleEquipBoth = useCallback((titleId: string, imageUrl: string) => {
+    const avatar = getTitleById(titleId);
+    setActiveTitleId(titleId);
+    setHeroImageUrl(imageUrl);
+    addLog(`👑 Equipped ${avatar ? avatar.className : titleId} (Title & Skin)`, 'system');
+  }, [addLog]);
+
   const handleLevelUp = useCallback((overflowXp: number) => {
     const newLevel = level + 1; 
     setLevel(newLevel); 
@@ -406,16 +466,51 @@ export default function App() {
      }
      setMerchantStock(p => [...p, ...nStock].slice(-8));
 
-     // Boss Kill Logic
+     // Boss Kill Logic & Repeatable Encounters
      const area = mapNodes.find(n => n.id === currentAreaId)!;
      // Check if any monster was unique/overlord or explicitly flagged as boss
      const boss = monsters.find(m => m.isBoss || (m.rarity === MonsterRarity.UNIQUE && m.name.includes('Overlord')));
+
+     // Boss Trophies drops logic
+     let trophiesAwarded = 0;
+     if (boss) {
+         trophiesAwarded += 1;
+         if (!area.isCleared) {
+             trophiesAwarded += 1; // +1 first clear bonus
+         }
+     } else {
+         monsters.forEach(m => {
+             if (m.rarity === MonsterRarity.UNIQUE) {
+                 trophiesAwarded += 1;
+             } else if (m.rarity === MonsterRarity.MYTHIC && Math.random() < 0.35) {
+                 trophiesAwarded += 1;
+             }
+         });
+     }
+
+     if (trophiesAwarded > 0) {
+         setBossTrophies(prev => {
+             const nextTotal = prev + trophiesAwarded;
+             addLog(`🏆 Found ${trophiesAwarded} Boss Trophy! (Total: ${nextTotal})`, 'system');
+             return nextTotal;
+         });
+     }
 
      if (!area.isCleared) {
          if (boss) {
              setMapNodes(prev => prev.map(n => n.id === area.id ? { ...n, isCleared: true } : area.connections.includes(n.id) ? { ...n, isUnlocked: true } : n));
              addLog("Area Cleared!", 'system');
-         } else setAreaProgress(p => Math.min(100, p + 10 * monsters.length));
+             setAreaProgress(0); // Reset for repeatable boss farming
+         } else {
+             setAreaProgress(p => Math.min(100, p + 10 * monsters.length));
+         }
+     } else {
+         if (boss) {
+             addLog("Boss defeated again! Area progress reset.", 'system');
+             setAreaProgress(0);
+         } else {
+             setAreaProgress(p => Math.min(100, p + 10 * monsters.length));
+         }
      }
      
      // Check for skill drops from any elite monster
@@ -452,6 +547,9 @@ export default function App() {
       setPlayerCurrentHp(Math.max(10, Math.floor(stats.maxHp * 0.5)));
       setCombatsSinceLastEvent(prev => prev + 1);
 
+      // Prevent boss death loop by dropping progress to 80%
+      setAreaProgress(prev => prev >= 100 ? 80 : prev);
+
       setActiveEffects(prev => {
          const next: ActiveEffect[] = [];
          prev.forEach(eff => {
@@ -464,7 +562,7 @@ export default function App() {
          });
          return next;
      });
-  }, [addLog]);
+  }, [stats.maxHp, addLog]);
 
   const currentArea = mapNodes.find(n => n.id === currentAreaId)!;
 
@@ -631,7 +729,7 @@ export default function App() {
     const node = mapNodes.find(n => n.id === id);
     if (node && node.isUnlocked) { 
         setCurrentAreaId(id); 
-        setAreaProgress(node.isCleared ? 100 : 0); 
+        setAreaProgress(0); 
         setShowMapModal(false); 
         // Travel consumes time
         setIsNight(prev => !prev);
@@ -700,7 +798,7 @@ export default function App() {
     if (battleState.isFighting || isUIBlocked || !stats) return;
     setGroundItems([]);
     const area = mapNodes.find(n => n.id === currentAreaId)!;
-    const isBoss = areaProgress >= 100 && !area.isCleared;
+    const isBoss = areaProgress >= 100;
 
     // Encounter pacing: Non-combat exploration events require at least 3 combats since the last event
     // and have a balanced 12% probability (guaranteeing consecutive event streaks never replace combat).
@@ -961,49 +1059,19 @@ export default function App() {
       {showSystemModal && <SystemModal currentSlotId={currentSlotId} onSave={handleSaveGame} onQuit={() => setGameStatus('MENU')} onOpenBalance={() => setShowBalanceModal(true)} onClose={() => setShowSystemModal(false)} />}
       {showBalanceModal && <BalanceDashboard playerStats={stats} currentLevel={level} onClose={() => setShowBalanceModal(false)} />}
       
-      {/* Hero Trainer Avatar Selection Modal */}
+      {/* Mastery Titles & Trainer Avatars Modal */}
       {showHeroClassModal && (
-        <BaseModal.Container zIndex="z-[110]" maxWidth="max-w-3xl">
-          <BaseModal.Header 
-            title="Trainer & Hero Skins" 
-            subtitle="Animated Battle Sprites" 
-            icon="🧢" 
-            textColor="text-amber-500" 
-            onClose={() => setShowHeroClassModal(false)} 
-          />
-          <BaseModal.Body className="bg-stone-950 p-3 lg:p-4 max-h-[75dvh] overflow-y-auto custom-scrollbar">
-            <div className="grid grid-cols-3 sm:grid-cols-4 gap-2 lg:gap-3">
-              {HERO_AVATARS.map(avatar => {
-                const isSelected = heroImageUrl === avatar.imageUrl;
-                return (
-                  <button
-                    key={avatar.id}
-                    onClick={() => {
-                      setHeroImageUrl(avatar.imageUrl);
-                      setShowHeroClassModal(false);
-                      addLog(`Chosen Trainer: ${avatar.name} (${avatar.className})`, 'system');
-                    }}
-                    className={`flex flex-col items-center p-2 lg:p-3 rounded-lg border transition-all cursor-pointer ${
-                      isSelected 
-                        ? 'border-amber-500 bg-amber-950/40 shadow-[0_0_15px_rgba(245,158,11,0.3)] ring-1 ring-amber-500' 
-                        : 'border-stone-800 bg-stone-900/60 hover:border-stone-600 hover:bg-stone-800'
-                    }`}
-                  >
-                    <div className="w-12 h-12 lg:w-16 lg:h-16 rounded-full bg-black/60 border border-stone-700 flex items-center justify-center mb-1.5 overflow-hidden shadow-inner">
-                      <img 
-                        src={avatar.imageUrl} 
-                        alt={avatar.name} 
-                        className="w-9 h-9 lg:w-12 lg:h-12 object-contain drop-shadow" 
-                      />
-                    </div>
-                    <span className="text-[11px] lg:text-xs font-bold text-stone-200">{avatar.name}</span>
-                    <span className="text-[9px] lg:text-[10px] text-amber-500/80 font-mono text-center">{avatar.className}</span>
-                  </button>
-                );
-              })}
-            </div>
-          </BaseModal.Body>
-        </BaseModal.Container>
+        <MasteryTitlesModal
+          bossTrophies={bossTrophies}
+          unlockedTitleIds={unlockedTitleIds}
+          activeTitleId={activeTitleId}
+          heroImageUrl={heroImageUrl}
+          onUnlockTitle={handleUnlockTitle}
+          onEquipTitle={handleEquipTitle}
+          onEquipSkin={handleEquipSkin}
+          onEquipBoth={handleEquipBoth}
+          onClose={() => setShowHeroClassModal(false)}
+        />
       )}
       
       {/* NEW: Rare Skill Discovery Modal */}
@@ -1047,12 +1115,18 @@ export default function App() {
                   </h2>
                   <button 
                     onClick={() => setShowHeroClassModal(true)} 
-                    className="text-[10px] lg:text-[11px] font-mono uppercase text-amber-500 hover:text-amber-300 bg-stone-900/80 border border-stone-700 hover:border-amber-500/60 px-2 lg:px-3 py-0.5 lg:py-1 rounded-full flex items-center gap-1 transition-all cursor-pointer shadow shrink-0"
-                    title="Change Trainer Skin"
+                    className="relative text-[10px] lg:text-[11px] font-mono uppercase text-amber-500 hover:text-amber-300 bg-stone-900/80 border border-stone-700 hover:border-amber-500/60 px-2 lg:px-3 py-0.5 lg:py-1 rounded-full flex items-center gap-1 transition-all cursor-pointer shadow shrink-0"
+                    title="Mastery Titles & Battle Sprites"
                   >
-                    <span>🧢</span>
-                    <span className="truncate max-w-[70px] lg:max-w-none">{HERO_AVATARS.find(a => a.imageUrl === heroImageUrl)?.name || 'Trainer'}</span>
+                    <span>👑</span>
+                    <span className="truncate max-w-[75px] lg:max-w-none">{getTitleById(activeTitleId)?.className || 'Apex Champion'}</span>
                     <span className="text-[8px] text-stone-500">▾</span>
+                    {bossTrophies > 0 && HERO_AVATARS.some(a => !unlockedTitleIds.includes(a.id) && bossTrophies >= a.trophyCost) && (
+                      <>
+                        <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-amber-500 rounded-full animate-ping" />
+                        <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-amber-500 rounded-full border border-black" />
+                      </>
+                    )}
                   </button>
               </div>
               
@@ -1117,8 +1191,8 @@ export default function App() {
 
           {/* Action Bar */}
           <div className="px-3 py-1.5 lg:p-4 bg-[#0c0a09]/90 flex gap-3 lg:gap-4 border-b border-stone-800 items-center z-10 shrink-0">
-              <div className="flex-grow h-2 lg:h-3 bg-stone-900 border border-stone-700 rounded-full relative overflow-hidden">
-                <div className="absolute h-full bg-gradient-to-r from-amber-900 to-amber-600" style={{ width: `${area.isCleared ? 100 : areaProgress}%` }}></div>
+              <div className="flex-grow h-2 lg:h-3 bg-stone-900 border border-stone-700 rounded-full relative overflow-hidden" title={areaProgress >= 100 ? "Area Boss Ahead!" : `Area Progress: ${areaProgress}%`}>
+                <div className="absolute h-full bg-gradient-to-r from-amber-900 to-amber-600 transition-all duration-300" style={{ width: `${Math.min(100, areaProgress)}%` }}></div>
               </div>
               <button 
                 onClick={handleExplore} 
