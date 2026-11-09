@@ -988,10 +988,12 @@ export default function App() {
               onClick={() => handleUnequip(slot)} 
               onContextMenu={(e) => { e.preventDefault(); if (item) handleItemRightClick(item, 'equipment', slot); }}
               onMouseEnter={(e) => { if (item) { setHoverItem(item); setCursorPos({ x: e.clientX, y: e.clientY }); } }}
+              onTouchStart={(e) => { if (item) { const t = e.touches[0]; setHoverItem(item); setCursorPos({ x: t.clientX, y: t.clientY }); } }}
               onMouseMove={(e) => { if (item) { setHoverItem(item); setCursorPos({ x: e.clientX, y: e.clientY }); } }}
               onMouseLeave={() => setHoverItem(null)}
               onDragOver={handleDragOver} 
               onDrop={(e) => handleDrop(e, 'equipment', slot)}
+              style={{ touchAction: 'manipulation' }}
           >
               <div className={`w-8 h-8 sm:w-9 sm:h-9 lg:w-12 lg:h-12 xl:w-14 xl:h-14 2xl:w-16 2xl:h-16 border rounded-[4px] ${item ? (item.rarity === 'Unique' ? 'border-amber-500' : 'border-stone-600') : 'border-stone-800 bg-[#0a0a0a]'} flex items-center justify-center relative shadow-inner transition-all hover:border-stone-400`}>
                  {item ? <GameIcon name={item.icon} imageUrl={item.imageUrl} className={`w-5 h-5 sm:w-6 sm:h-6 lg:w-8 lg:h-8 xl:w-10 xl:h-10 2xl:w-12 2xl:h-12 ${RARITY_COLORS[item.rarity]}`} /> : <GameIcon name={SLOT_ICONS[slot]} className="w-4 h-4 sm:w-5 sm:h-5 lg:w-7 lg:h-7 opacity-20 text-stone-500" />}
@@ -1014,7 +1016,21 @@ export default function App() {
   // Main Responsive Container
   return (
     <div className="container-principal relative w-full h-full bg-[#0c0a09] shadow-2xl overflow-hidden flex flex-col sm:grid sm:grid-cols-12 sm:grid-rows-[minmax(0,1fr)] panel-border text-xs lg:text-base">
-      {hoverItem && <Tooltip item={hoverItem} comparedItem={equipment[hoverItem.type]} position={cursorPos} />}
+      {hoverItem && (
+        <>
+          <div 
+            className="fixed inset-0 bg-black/40 z-[99] sm:hidden backdrop-blur-[2px]" 
+            onClick={() => setHoverItem(null)} 
+            onTouchStart={() => setHoverItem(null)} 
+          />
+          <Tooltip 
+            item={hoverItem} 
+            comparedItem={equipment[hoverItem.type]} 
+            position={cursorPos} 
+            onClose={() => setHoverItem(null)} 
+          />
+        </>
+      )}
       {currentEvent && <EventModal event={currentEvent} onClose={() => setCurrentEvent(null)} />}
       {showLevelUpModal && <LevelUpModal newPassive={lastGainedPassive ? lastGainedPassive.skill : null} isUpgrade={lastGainedPassive ? !lastGainedPassive.isNew : false} pointsAvailable={statPoints} baseAttributes={baseAttributes} flavorText={passiveFlavorText} onAllocate={handleAllocatePoint} onClose={() => setShowLevelUpModal(false)} />}
       {showMapModal && <WorldMapModal nodes={mapNodes} currentNodeId={currentAreaId} areaProgress={areaProgress} onTravel={handleTravel} onClose={() => setShowMapModal(false)} />}
@@ -1314,10 +1330,22 @@ export default function App() {
                    ) : (
                        <div className="grid grid-cols-2 gap-1.5 lg:gap-2">
                            {merchantStock.map((i, idx) => (
-                               <button key={idx} onClick={() => handleBuyItem(i, idx)} className="bg-stone-900 border border-stone-700 p-1 rounded hover:border-amber-500 flex flex-col items-center gap-0.5 group">
-                                   <InventorySlot item={i} onClick={()=>{}} onRightClick={()=>{}} setHoverItem={(itm, p) => { setHoverItem(itm); if(p) setCursorPos(p); }} />
-                                   <span className="text-[9px] text-amber-500 font-mono group-hover:text-white">{calculateItemValue(i)*BALANCE.ITEM_VALUE.buyMarkup}g</span>
-                               </button>
+                               <div key={idx} className="bg-stone-900 border border-stone-700 p-1.5 rounded flex flex-col items-center gap-1 group">
+                                   <InventorySlot 
+                                       item={i} 
+                                       onClick={() => { setHoverItem(i); }} 
+                                       onRightClick={() => handleBuyItem(i, idx)} 
+                                       setHoverItem={(itm, p) => { setHoverItem(itm); if(p) setCursorPos(p); }} 
+                                   />
+                                   <button 
+                                       onClick={() => handleBuyItem(i, idx)} 
+                                       className="w-full py-1 px-1 bg-amber-950/80 hover:bg-amber-900 active:scale-95 border border-amber-600/70 text-amber-300 text-[10px] lg:text-xs font-mono font-bold rounded flex items-center justify-center gap-1 transition-all touch-manipulation cursor-pointer"
+                                       title={`Buy for ${calculateItemValue(i)*BALANCE.ITEM_VALUE.buyMarkup}g`}
+                                   >
+                                       <span>Buy</span>
+                                       <span>{calculateItemValue(i)*BALANCE.ITEM_VALUE.buyMarkup}g</span>
+                                   </button>
+                               </div>
                            ))}
                        </div>
                    )}

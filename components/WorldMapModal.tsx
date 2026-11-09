@@ -66,7 +66,7 @@ const WorldMapModal: React.FC<WorldMapModalProps> = ({
         />
 
         {/* Map Container - Scrollable on Mobile */}
-        <BaseModal.Body noPadding className="bg-stone-950">
+        <BaseModal.Body noPadding className="bg-stone-950 overflow-x-auto overflow-y-auto">
            {/* Inner Container - Fixed min-size to ensure map logic works and is scrollable if screen small */}
            <div className="relative w-full h-full min-w-[520px] min-h-[220px] bg-[url('https://www.transparenttextures.com/patterns/cartographer.png')]">
               {/* Background SVG for Lines */}

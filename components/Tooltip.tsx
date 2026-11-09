@@ -9,6 +9,7 @@ interface TooltipProps {
   item: Item;
   comparedItem?: Item;
   position: { x: number; y: number };
+  onClose?: () => void;
 }
 
 // Consistent sorting order for easy visual comparison
@@ -212,7 +213,7 @@ const ItemCard = ({
   );
 };
 
-const Tooltip: React.FC<TooltipProps> = ({ item, comparedItem, position }) => {
+const Tooltip: React.FC<TooltipProps> = ({ item, comparedItem, position, onClose }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [style, setStyle] = useState<React.CSSProperties>({ opacity: 0 });
   
@@ -296,6 +297,18 @@ const Tooltip: React.FC<TooltipProps> = ({ item, comparedItem, position }) => {
       className="tooltip-container transition-opacity duration-150 ease-out"
       style={style}
     >
+      {onClose && (
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onClose();
+          }}
+          className="sm:hidden self-end px-3 py-1 bg-stone-900/90 border border-stone-600 hover:border-stone-400 text-stone-300 text-xs rounded-full font-bold uppercase tracking-wider flex items-center gap-1 active:scale-95 touch-manipulation shadow-lg mb-0.5 cursor-pointer z-30"
+        >
+          ✕ Cerrar
+        </button>
+      )}
+
       {/* Inspecting Item (Left/Top) */}
       {/* Pass comparison item so we can calculate diffs */}
       <ItemCard 
