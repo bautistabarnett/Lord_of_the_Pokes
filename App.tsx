@@ -15,7 +15,6 @@ import WorldMapModal from './components/WorldMapModal';
 import EventModal from './components/EventModal';
 import SmugglingModal from './components/SmugglingModal';
 import SkillsModal from './components/SkillsModal';
-import StatsModal from './components/StatsModal';
 import { MainMenu } from './components/MainMenu';
 import SystemModal from './components/SystemModal';
 import BalanceDashboard from './components/BalanceDashboard';
@@ -65,7 +64,6 @@ export default function App() {
   const [showMapModal, setShowMapModal] = useState(false);
   const [showSmugglingModal, setShowSmugglingModal] = useState(false);
   const [showSkillsModal, setShowSkillsModal] = useState(false);
-  const [showStatsModal, setShowStatsModal] = useState(false);
   const [showSystemModal, setShowSystemModal] = useState(false);
   const [showBalanceModal, setShowBalanceModal] = useState(false);
 
@@ -586,9 +584,9 @@ export default function App() {
   }, [stats.maxHp, battleState.isFighting]);
 
   useEffect(() => {
-      const anyModalOpen = showMapModal || showSmugglingModal || showSkillsModal || showLevelUpModal || showStatsModal || !!currentEvent || showSystemModal || !!skillReward || showBalanceModal || showHeroClassModal;
+      const anyModalOpen = showMapModal || showSmugglingModal || showSkillsModal || showLevelUpModal || !!currentEvent || showSystemModal || !!skillReward || showBalanceModal || showHeroClassModal;
       setIsUIBlocked(anyModalOpen);
-  }, [showMapModal, showSmugglingModal, showSkillsModal, showLevelUpModal, showStatsModal, currentEvent, showSystemModal, skillReward, showBalanceModal, showHeroClassModal]);
+  }, [showMapModal, showSmugglingModal, showSkillsModal, showLevelUpModal, currentEvent, showSystemModal, skillReward, showBalanceModal, showHeroClassModal]);
 
   const handleDragStart = useCallback((e: React.DragEvent, source: 'inventory' | 'equipment' | 'sell', index: number | string) => {
     if (isUIBlocked) { e.preventDefault(); return; }
@@ -1086,7 +1084,6 @@ export default function App() {
       {showMapModal && <WorldMapModal nodes={mapNodes} currentNodeId={currentAreaId} areaProgress={areaProgress} onTravel={handleTravel} onClose={() => setShowMapModal(false)} />}
       {showSmugglingModal && <SmugglingModal gold={gold} onPurchase={(c) => setGold(p => p - c)} onGenerateLoot={(forcedRarity) => generateLoot(level, 1, stats.magicFind || 0, forcedRarity)} onClose={() => setShowSmugglingModal(false)} addToInventory={addToInventory} />}
       {showSkillsModal && <SkillsModal passiveSkills={passiveSkills} activeEffects={activeEffects} equippedSkillIds={equippedSkillIds} buildLoadouts={buildLoadouts} playerStats={stats} onEquip={handleEquipSkill} onUnequip={handleUnequipSkill} onUnlockTreeSkill={handleUnlockTreeSkill} onSaveBuild={handleSaveBuild} onLoadBuild={handleLoadBuild} onRespecAttributes={handleRespecAttributes} onClose={() => setShowSkillsModal(false)} />}
-      {showStatsModal && <StatsModal stats={stats} baseAttributes={baseAttributes} statPoints={statPoints} passiveSkills={passiveSkills} onAllocate={handleAllocatePoint} onClose={() => setShowStatsModal(false)} />}
       {showSystemModal && <SystemModal currentSlotId={currentSlotId} onSave={handleSaveGame} onQuit={() => setGameStatus('MENU')} onOpenBalance={() => setShowBalanceModal(true)} onClose={() => setShowSystemModal(false)} />}
       {showBalanceModal && <BalanceDashboard playerStats={stats} currentLevel={level} onClose={() => setShowBalanceModal(false)} />}
       
