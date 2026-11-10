@@ -23,6 +23,7 @@ import { useCombatEngine, generateTurnBatch } from './hooks/useCombatEngine';
 import { HERO_AVATARS, DEFAULT_HERO_AVATAR, DEFAULT_TITLE_ID, getTitleById } from './services/spriteCatalog';
 import { MasteryTitlesModal } from './components/MasteryTitlesModal';
 import { hydrateLegacyItem } from './services/itemCatalog';
+import CenterStatsDashboard from './components/CenterStatsDashboard';
 
 type MobileTab = 'hero' | 'adventure' | 'merchant';
 type GameStatus = 'MENU' | 'PLAYING';
@@ -78,6 +79,7 @@ export default function App() {
   const [heroImageUrl, setHeroImageUrl] = useState<string | undefined>(DEFAULT_HERO_AVATAR);
   const [showHeroClassModal, setShowHeroClassModal] = useState(false);
   const [activeTab, setActiveTab] = useState<MobileTab>('adventure');
+  const [centerTab, setCenterTab] = useState<'stats' | 'log'>('stats');
 
   // Mastery Titles (per save slot)
   const [bossTrophies, setBossTrophies] = useState<number>(0);
@@ -1197,8 +1199,15 @@ export default function App() {
                   </div>
               </div>
               
-              <button onClick={() => setShowStatsModal(true)} className="w-full mt-1.5 lg:mt-3 py-2.5 lg:py-3 bg-stone-900 hover:bg-stone-800 active:scale-98 border border-stone-700 hover:border-amber-500/60 text-amber-500 font-bold uppercase tracking-widest text-xs lg:text-sm transition-all shrink-0 rounded shadow touch-manipulation">
-                Full Stats {statPoints > 0 && <span className="text-green-500 ml-1">(+{statPoints})</span>}
+              <button 
+                onClick={() => {
+                  setActiveTab('adventure');
+                  setCenterTab('stats');
+                }} 
+                className="w-full mt-1.5 lg:mt-3 py-2.5 lg:py-3 bg-stone-900 hover:bg-stone-800 active:scale-98 border border-stone-700 hover:border-amber-500/60 text-amber-500 font-bold uppercase tracking-widest text-xs lg:text-sm transition-all shrink-0 rounded shadow touch-manipulation"
+                title="Ver panel de estadísticas completo en el centro"
+              >
+                Estadísticas {statPoints > 0 && <span className="text-green-500 ml-1">(+{statPoints})</span>}
               </button>
           </div>
       </div>
@@ -1235,6 +1244,40 @@ export default function App() {
               </button>
           </div>
 
+          {/* Center View Sub-Tabs (Stats vs Log) */}
+          <div className="flex items-center bg-stone-950/80 border-b border-stone-800 px-2 lg:px-4 py-1 gap-2 shrink-0">
+            <button
+              onClick={() => setCenterTab('stats')}
+              className={`flex-1 py-1 px-2.5 text-[11px] lg:text-xs font-bold uppercase tracking-wider rounded transition-all flex items-center justify-center gap-1.5 touch-manipulation ${
+                centerTab === 'stats'
+                  ? 'bg-amber-950/40 text-amber-400 border border-amber-600/50 shadow-sm'
+                  : 'text-stone-400 hover:text-stone-200 hover:bg-stone-900/50 border border-transparent'
+              }`}
+            >
+              <span>📊</span>
+              <span>Estadísticas</span>
+              {statPoints > 0 && (
+                <span className="bg-emerald-500 text-black text-[9px] lg:text-[10px] font-extrabold px-1.5 py-0.2 rounded-full ml-1 animate-pulse">
+                  +{statPoints}
+                </span>
+              )}
+            </button>
+            <button
+              onClick={() => setCenterTab('log')}
+              className={`flex-1 py-1 px-2.5 text-[11px] lg:text-xs font-bold uppercase tracking-wider rounded transition-all flex items-center justify-center gap-1.5 touch-manipulation ${
+                centerTab === 'log'
+                  ? 'bg-amber-950/40 text-amber-400 border border-amber-600/50 shadow-sm'
+                  : 'text-stone-400 hover:text-stone-200 hover:bg-stone-900/50 border border-transparent'
+              }`}
+            >
+              <span>📜</span>
+              <span>Bitácora</span>
+              {logs.length > 0 && (
+                <span className="text-[10px] font-mono opacity-60">({logs.length})</span>
+              )}
+            </button>
+          </div>
+
           {/* Main Content Area */}
           <div className="flex-1 min-h-0 relative overflow-hidden flex flex-col p-2 lg:p-4 gap-2 lg:gap-4">
               
@@ -1250,16 +1293,28 @@ export default function App() {
                 </div>
               )}
 
-              {/* Adventure Log */}
-              <div className="flex-1 min-h-0 border border-stone-800 bg-black/20 rounded p-2.5 lg:p-4 overflow-y-auto custom-scrollbar font-mono text-[11px] lg:text-sm 2xl:text-base space-y-1 shadow-inner">
-                  {logs.map((log) => (
-                      <div key={log.id} className={`${log.type === 'combat' ? 'text-red-400' : log.type === 'loot' ? 'text-amber-400' : log.type === 'event' ? 'text-blue-300' : 'text-stone-500'} border-b border-white/5 pb-1 mb-1`}>
-                          <span className="opacity-50 mr-2">[{new Date(log.timestamp).toLocaleTimeString().slice(0,5)}]</span>
-                          {log.message}
-                      </div>
-                  ))}
-                  {logs.length === 0 && <div className="text-stone-600 italic text-center mt-4 lg:mt-10">The journey begins...</div>}
-              </div>
+              {/* Dynamic Center View: Stats Dashboard OR Full Adventure Log */}
+              {centerTab === 'stats' ? (
+                <CenterStatsDashboard
+                  stats={stats}
+                  baseAttributes={baseAttributes}
+                  statPoints={statPoints}
+                  passiveSkills={passiveSkills}
+                  onAllocate={handleAllocatePoint}
+                  latestLogMessage={logs[0]?.message}
+                  onViewFullLog={() => setCenterTab('log')}
+                />
+              ) : (
+                <div className="flex-1 min-h-0 border border-stone-800 bg-black/20 rounded p-2.5 lg:p-4 overflow-y-auto custom-scrollbar font-mono text-[11px] lg:text-sm 2xl:text-base space-y-1 shadow-inner">
+                    {logs.map((log) => (
+                        <div key={log.id} className={`${log.type === 'combat' ? 'text-red-400' : log.type === 'loot' ? 'text-amber-400' : log.type === 'event' ? 'text-blue-300' : 'text-stone-500'} border-b border-white/5 pb-1 mb-1`}>
+                            <span className="opacity-50 mr-2">[{new Date(log.timestamp).toLocaleTimeString().slice(0,5)}]</span>
+                            {log.message}
+                        </div>
+                    ))}
+                    {logs.length === 0 && <div className="text-stone-600 italic text-center mt-4 lg:mt-10">The journey begins...</div>}
+                </div>
+              )}
 
               {/* Bottom Controls */}
               <div className="grid grid-cols-4 gap-1.5 lg:gap-2 h-10 lg:h-12 shrink-0">

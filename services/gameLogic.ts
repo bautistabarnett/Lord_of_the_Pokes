@@ -478,7 +478,7 @@ export const calculatePlayerStats = (
   });
 
   Object.values(equipment).forEach(item => {
-    if (!item) return;
+    if (!item || !Array.isArray(item.stats)) return;
     item.stats.forEach(stat => {
       switch (stat.type) {
         case StatType.STRENGTH: currentStats.strength += stat.value; break;
