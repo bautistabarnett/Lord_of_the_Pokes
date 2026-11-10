@@ -954,12 +954,58 @@ export default function App() {
   }, [activeTab, merchantMode, moveItemToSell, handleIdentifySingle, handleEquip, handleUnequip]);
 
 
+  const handleModalEquip = useCallback((item: Item) => {
+      // Find in inventory
+      const invIdx = inventory.findIndex(i => i?.id === item.id);
+      if (invIdx !== -1) {
+          if (!item.isIdentified) {
+              handleIdentifySingle(item, invIdx);
+              return;
+          }
+          moveItemToEquipment(item, 'inventory', invIdx, item.type);
+          setHoverItem(null);
+          return;
+      }
+      // Check if equipped
+      const equippedSlot = Object.keys(equipment).find(slot => equipment[slot as ItemSlot]?.id === item.id) as ItemSlot | undefined;
+      if (equippedSlot) {
+          handleUnequip(equippedSlot);
+          setHoverItem(null);
+      }
+  }, [inventory, equipment, handleIdentifySingle, moveItemToEquipment, handleUnequip]);
+
+  const handleModalSell = useCallback((item: Item) => {
+      const invIdx = inventory.findIndex(i => i?.id === item.id);
+      if (invIdx !== -1) {
+          const val = calculateItemValue(item);
+          const next = [...inventory];
+          next[invIdx] = null;
+          setInventory(next);
+          setGold(prev => prev + val);
+          addLog(`💰 Sold ${item.name} for ${val}g`, 'loot');
+          setHoverItem(null);
+          return;
+      }
+      const equippedSlot = Object.keys(equipment).find(slot => equipment[slot as ItemSlot]?.id === item.id) as ItemSlot | undefined;
+      if (equippedSlot) {
+          const val = calculateItemValue(item);
+          setEquipment(prev => {
+              const next = { ...prev };
+              delete next[equippedSlot];
+              return next;
+          });
+          setGold(prev => prev + val);
+          addLog(`💰 Sold ${item.name} for ${val}g`, 'loot');
+          setHoverItem(null);
+      }
+  }, [inventory, equipment, addLog]);
+
   // Global Touch Handler to clear Tooltips on mobile interaction with background
   useEffect(() => {
     const handleTouchStart = (e: TouchEvent) => {
         // If touching something that isn't a slot, clear hover
         const target = e.target as HTMLElement;
-        if (!target.closest('.slot') && !target.closest('.tooltip-card')) {
+        if (!target.closest('.slot') && !target.closest('.tooltip-card') && !target.closest('.tooltip-container')) {
             setHoverItem(null);
         }
     };
@@ -1019,14 +1065,16 @@ export default function App() {
       {hoverItem && (
         <>
           <div 
-            className="fixed inset-0 bg-black/40 z-[99] sm:hidden backdrop-blur-[2px]" 
+            className="fixed inset-0 bg-black/50 z-[99] sm:hidden backdrop-blur-[2px]" 
             onClick={() => setHoverItem(null)} 
-            onTouchStart={() => setHoverItem(null)} 
           />
           <Tooltip 
             item={hoverItem} 
             comparedItem={equipment[hoverItem.type]} 
             position={cursorPos} 
+            isEquipped={equipment[hoverItem.type]?.id === hoverItem.id}
+            onEquip={handleModalEquip}
+            onSell={handleModalSell}
             onClose={() => setHoverItem(null)} 
           />
         </>

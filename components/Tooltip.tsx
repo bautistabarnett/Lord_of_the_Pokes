@@ -4,12 +4,16 @@ import { Item, ItemStat, StatType } from '../types';
 import { RARITY_COLORS } from '../constants';
 import GameIcon from './GameIcon';
 import { getIdentifyCost } from '../services/gameBalance';
+import { calculateItemValue } from '../services/gameLogic';
 
 interface TooltipProps {
   item: Item;
   comparedItem?: Item;
   position: { x: number; y: number };
   onClose?: () => void;
+  onEquip?: (item: Item) => void;
+  onSell?: (item: Item) => void;
+  isEquipped?: boolean;
 }
 
 // Consistent sorting order for easy visual comparison
@@ -48,12 +52,16 @@ const ItemCard = ({
     item, 
     label, 
     isEquipped, 
-    comparedItem 
+    comparedItem,
+    onEquip,
+    onSell
 }: { 
     item: Item; 
     label?: string; 
     isEquipped?: boolean; 
     comparedItem?: Item; // Only passed to the inspecting item to calculate diffs
+    onEquip?: (item: Item) => void;
+    onSell?: (item: Item) => void;
 }) => {
   const textColor = RARITY_COLORS[item.rarity];
   
@@ -208,12 +216,47 @@ const ItemCard = ({
              </div>
             <span className="text-stone-700 text-[9px] font-mono">iLvl {item.level}</span>
         </div>
+
+        {(onEquip || onSell) && (
+          <div className="mt-2 pt-2 border-t border-stone-800 flex gap-1.5 shrink-0 z-20">
+            {onEquip && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onEquip(item);
+                }}
+                className={`flex-1 py-1.5 px-2 rounded font-bold uppercase tracking-wider text-[11px] lg:text-xs flex items-center justify-center gap-1 transition-all active:scale-95 touch-manipulation cursor-pointer shadow-md ${
+                  isEquipped
+                    ? 'bg-stone-800 hover:bg-stone-700 text-stone-300 border border-stone-600'
+                    : !item.isIdentified
+                    ? 'bg-amber-900 hover:bg-amber-800 text-amber-200 border border-amber-600'
+                    : 'bg-emerald-900/90 hover:bg-emerald-800 text-emerald-200 border border-emerald-600 shadow-[0_0_10px_rgba(16,185,129,0.3)]'
+                }`}
+              >
+                <span>{isEquipped ? '📦 Desequipar' : !item.isIdentified ? `📜 Identificar (${getIdentifyCost(item)}g)` : '⚔️ Equipar'}</span>
+              </button>
+            )}
+
+            {onSell && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onSell(item);
+                }}
+                className="flex-1 py-1.5 px-2 bg-amber-950/80 hover:bg-amber-900 active:scale-95 border border-amber-600/70 text-amber-300 rounded font-bold uppercase tracking-wider text-[11px] lg:text-xs flex items-center justify-center gap-1 transition-all touch-manipulation cursor-pointer shadow-md"
+              >
+                <span>💰 Vender</span>
+                <span className="font-mono text-[10px] text-amber-400">({calculateItemValue(item)}g)</span>
+              </button>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
 };
 
-const Tooltip: React.FC<TooltipProps> = ({ item, comparedItem, position, onClose }) => {
+const Tooltip: React.FC<TooltipProps> = ({ item, comparedItem, position, onClose, onEquip, onSell, isEquipped }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [style, setStyle] = useState<React.CSSProperties>({ opacity: 0 });
   
@@ -278,7 +321,7 @@ const Tooltip: React.FC<TooltipProps> = ({ item, comparedItem, position, onClose
             left: x,
             opacity: 1,
             zIndex: 100,
-            pointerEvents: 'none',
+            pointerEvents: onEquip || onSell ? 'auto' : 'none',
             display: 'flex',
             flexDirection: 'row',
             alignItems: 'flex-start',
@@ -289,7 +332,7 @@ const Tooltip: React.FC<TooltipProps> = ({ item, comparedItem, position, onClose
         });
     }
 
-  }, [position, item, comparison]);
+  }, [position, item, comparison, onEquip, onSell]);
 
   return (
     <div
@@ -315,6 +358,9 @@ const Tooltip: React.FC<TooltipProps> = ({ item, comparedItem, position, onClose
         item={item} 
         label={comparison ? "Inspecting" : undefined} 
         comparedItem={comparison} 
+        isEquipped={isEquipped}
+        onEquip={onEquip}
+        onSell={onSell}
       />
       
       {/* Equipped Item (Right/Bottom) */}
