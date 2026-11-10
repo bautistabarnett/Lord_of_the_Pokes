@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Monster, PlayerStats, CombatStatusEffect, ActiveEffect, CombatStance, CombatTrigger, LogEntry, TerrainType, PassiveSkill } from '../types';
+import { Monster, PlayerStats, CombatStatusEffect, ActiveEffect, CombatStance, CombatTrigger, LogEntry, TerrainType, PassiveSkill, InfamyRuntimeState, MaledictAffix } from '../types';
 import { COMPOSITE_SYNERGIES, PASSIVE_SET_BONUSES, PASSIVE_SKILLS_POOL } from '../constants';
 import { BALANCE, resolveTriadClash, STANCE_META, TriadClashResult } from '../services/gameBalance';
 
@@ -108,6 +108,91 @@ export const useCombatEngine = ({
   // Track Cooldowns for Skills (SkillID -> Turns Remaining)
   const [skillCooldowns, setSkillCooldowns] = useState<Record<string, number>>({});
 
+  // Infamias State & Temporal Cooldowns
+  const [infamyStates, setInfamyStates] = useState<Record<string, InfamyRuntimeState>>({});
+  const infamyStatesRef = useRef<Record<string, InfamyRuntimeState>>({});
+  useEffect(() => {
+    infamyStatesRef.current = infamyStates;
+  }, [infamyStates]);
+
+  const [isChronobreakerActive, setIsChronobreakerActive] = useState<boolean>(false);
+  const turnInfamyTriggeredRef = useRef<boolean>(false);
+
+  // Helper: check and expire infamias that have exceeded durationTurns
+  const checkInfamyExpirations = (currentTurn: number) => {
+    let hasChanges = false;
+    const nextStates = { ...infamyStatesRef.current };
+
+    Object.entries(nextStates).forEach(([key, state]) => {
+      if (state.isActive && state.activeUntilTurn && currentTurn >= state.activeUntilTurn) {
+        nextStates[key] = { ...state, isActive: false };
+        hasChanges = true;
+
+        if (key.endsWith('_trickster')) {
+          const mId = key.substring(0, key.lastIndexOf('_trickster'));
+          setActiveMonsters(prev => prev.map(m => m.id === mId ? { ...m, isStanceHidden: false } : m));
+          activeMonstersRef.current = activeMonstersRef.current.map(m => m.id === mId ? { ...m, isStanceHidden: false } : m);
+        }
+      }
+    });
+
+    if (hasChanges) {
+      infamyStatesRef.current = nextStates;
+      setInfamyStates(nextStates);
+    }
+  };
+
+  // Helper: Try to trigger exactly ONE eligible Infamia this turn
+  const tryTriggerInfamy = (
+    trigger: 'onPlayerTurnStart' | 'onEnemyTurnStart' | 'onStanceClash',
+    targetMonsterId?: string
+  ): { infamyId: string; monster: Monster } | null => {
+    if (turnInfamyTriggeredRef.current) return null;
+
+    const now = Date.now();
+    const liveMonsters = activeMonstersRef.current.filter(m => m.currentHp > 0);
+    const candidates: { monster: Monster; affix: MaledictAffix; key: string }[] = [];
+
+    liveMonsters.forEach(m => {
+      if (targetMonsterId && m.id !== targetMonsterId) return;
+      m.maledicts.forEach(affix => {
+        if (affix.category === 'INFAMY' && affix.trigger === trigger) {
+          const key = `${m.id}_${affix.id}`;
+          const current = infamyStatesRef.current[key];
+          if (current && now >= current.readyAtTimestamp && !current.isActive) {
+            candidates.push({ monster: m, affix, key });
+          }
+        }
+      });
+    });
+
+    if (candidates.length === 0) return null;
+
+    // Arbitration: pick one candidate
+    const picked = candidates[Math.floor(Math.random() * candidates.length)];
+    turnInfamyTriggeredRef.current = true;
+
+    const baseCd = picked.affix.cooldownSeconds || 8.0;
+    const jitter = picked.affix.jitterSeconds || 1.5;
+    const cdSec = Math.max(3.5, baseCd + (Math.random() * 2 - 1) * jitter);
+    const nextReady = now + Math.floor(cdSec * 1000);
+    const duration = picked.affix.durationTurns || 1;
+
+    const nextStates = {
+      ...infamyStatesRef.current,
+      [picked.key]: {
+        readyAtTimestamp: nextReady,
+        isActive: true,
+        activeUntilTurn: turnCount + duration,
+        fracturedUntilTurn: 0
+      }
+    };
+    infamyStatesRef.current = nextStates;
+    setInfamyStates(nextStates);
+
+    return { infamyId: picked.affix.id, monster: picked.monster };
+  };
+
   const addToCombatLog = (msg: string) => setCombatLog(prev => [...prev, msg]);
 
   // --- BATTLE START ---
@@ -137,6 +222,26 @@ export const useCombatEngine = ({
     combatStanceRef.current = CombatStance.WILL;
     setActionTimerProgress(0);
     setLastClashResult(null);
+
+    // Initialize Infamias Runtime State
+    const initInfamies: Record<string, InfamyRuntimeState> = {};
+    const now = Date.now();
+    monsters.forEach(m => {
+        m.maledicts.forEach(affix => {
+            if (affix.category === 'INFAMY') {
+                const key = `${m.id}_${affix.id}`;
+                const initialDelaySec = (affix.cooldownSeconds || 7.0) * 0.4 + (Math.random() * (affix.jitterSeconds || 1.0));
+                initInfamies[key] = {
+                    readyAtTimestamp: now + Math.floor(initialDelaySec * 1000),
+                    isActive: false
+                };
+            }
+        });
+    });
+    setInfamyStates(initInfamies);
+    infamyStatesRef.current = initInfamies;
+    setIsChronobreakerActive(false);
+    turnInfamyTriggeredRef.current = false;
     
     // Initial Environment Check & Battle Start Triggers
     if (environment) {
@@ -433,54 +538,33 @@ export const useCombatEngine = ({
           });
       }
 
-      // 2. ENEMY MALEDICTS (Active) - Process all active monsters
+      // 2. ENEMY TRAITS (Permanent passive triggers) - Process all active monsters
       if (actor === 'enemy') {
           activeMonsters.forEach(monster => {
-              // Only alive monsters trigger stuff
               if (monster.currentHp <= 0) return;
 
               monster.maledicts.forEach(m => {
-                  if (m.trigger === trigger) {
-                       if (m.id === 'arcane' && m.triggerEffect?.type === 'reflect') {
-                           newEffects.push({
-                               id: `arcane-shield-${monster.id}-${Date.now()}`, type: 'shield', name: 'Arcane Shield', duration: 1, value: 1, stacks: 1, source: 'maledict', target: 'enemy', description: 'Nullifies next hit.',
-                               targetId: monster.id
-                           } as any);
-                           addToCombatLog(`✨ ${monster.name}'s ${m.name} activates!`);
-                      }
-                      else if (m.id === 'plague' && m.triggerEffect?.type === 'ground_hazard') {
+                  if (m.category === 'TRAIT' && (m.trigger === trigger || (m.trigger === 'onEnemyTurnStart' && trigger === 'onStartTurn'))) {
+                      if (m.id === 'plague' && m.triggerEffect?.type === 'ground_hazard') {
                           newEffects.push({
                                id: `plague-${Date.now()}`, type: 'poison', name: 'Plague Cloud', duration: 3, value: m.triggerEffect.value, stacks: 1, source: 'maledict', target: 'player', description: 'Poisoned.'
                            });
                            addToCombatLog(`🤢 ${monster.name} radiates Poison!`);
-                      }
-                      else if (m.triggerEffect && Math.random() < m.triggerEffect.chance) {
-                           const eff = m.triggerEffect;
-                           if (eff.type === 'shuffle_turn') {
-                               addToCombatLog(`⏳ ${m.name}: Turn queue shuffled.`);
-                               setTurnQueue(prev => [...prev].sort(() => Math.random() - 0.5));
-                           }
-                           if (eff.type === 'debuff_player') {
-                               newEffects.push({
-                                   id: Date.now() + Math.random().toString(), type: 'burn', name: m.name, duration: 3, value: eff.value, stacks: 1, source: 'maledict', target: 'player', description: 'Burned.'
-                               });
-                               addToCombatLog(`🔥 ${monster.name} burns you!`);
-                           }
                       }
                   }
               });
           });
       }
 
-      // 3. ENEMY REACTIVE (Triggered by Player Action on a specific target)
+      // 3. ENEMY REACTIVE TRAITS (Triggered by Player Action on a specific target)
       if (actor === 'player' && trigger === 'onHit' && targetMonster) {
            targetMonster.maledicts.forEach(m => {
-                if (m.trigger === 'onTakeDamage' && m.triggerEffect && Math.random() < m.triggerEffect.chance) {
+                if (m.category === 'TRAIT' && m.trigger === 'onTakeDamage' && m.triggerEffect && Math.random() < m.triggerEffect.chance) {
                      if (m.triggerEffect.type === 'debuff_player') {
                           newEffects.push({
                               id: Date.now() + Math.random().toString(), type: 'burn', name: m.name, duration: 2, value: m.triggerEffect.value, stacks: 1, source: 'maledict', target: 'player'
                           });
-                          addToCombatLog(`⚠️ ${targetMonster.name} reacts!`);
+                          addToCombatLog(`🔥 ¡Molten! ${targetMonster.name} reacts burning you!`);
                      }
                 }
            });
@@ -654,22 +738,45 @@ export const useCombatEngine = ({
       timestamp: Date.now()
     });
 
+    // Check Infamias on Target Monster for Stance Clash (Rune Bulwark & Adamantine Shell)
+    const bulwarkKey = `${targetMonster.id}_bulwark`;
+    let isBulwarkActive = infamyStatesRef.current[bulwarkKey]?.isActive;
+    if (!isBulwarkActive && infamyStatesRef.current[bulwarkKey] && Date.now() >= infamyStatesRef.current[bulwarkKey].readyAtTimestamp) {
+      if (tryTriggerInfamy('onStanceClash', targetMonster.id)) {
+        isBulwarkActive = true;
+      }
+    }
+
+    const adamantineKey = `${targetMonster.id}_adamantine`;
+    let isAdamantineActive = infamyStatesRef.current[adamantineKey]?.isActive;
+    if (!isAdamantineActive && infamyStatesRef.current[adamantineKey] && Date.now() >= infamyStatesRef.current[adamantineKey].readyAtTimestamp) {
+      if (tryTriggerInfamy('onStanceClash', targetMonster.id)) {
+        isAdamantineActive = true;
+      }
+    }
+
     if (clash === 'WIN') {
       rawDmg *= BALANCE.COMBAT.triadConfig.winDamageMult;
       addToCombatLog(`⚔️ ¡TRIUNFO! Tu ${STANCE_META[activeStance].name} quiebra el ${STANCE_META[enemyStance].name} de ${targetMonster.name} (+35% daño)!`);
     } else if (clash === 'LOSE') {
-      // Quick Reaction -> Feint (Finta): Chance to recover from a failed stance and deal 100% normal damage
-      const chillStacks = combatStatusEffects
-        .filter(e => e.target === 'player' && e.type === 'chill')
-        .reduce((acc, curr) => acc + curr.stacks, 0);
-      const effectiveReaction = Math.max(0, (playerStats.attackSpeed || 0) * Math.pow(0.8, chillStacks));
-      const feintChance = Math.min(35, effectiveReaction * 0.6);
-
-      if (feintChance > 0 && Math.random() * 100 < feintChance) {
-        addToCombatLog(`🤺 ¡FINTA RÁPIDA! Pese a fallar la postura (${STANCE_META[activeStance].name} vs ${STANCE_META[enemyStance].name}), tu Reacción Rápida corrige el golpe (100% daño)!`);
+      // If Rune Bulwark is active, it severely punishes losing the clash: 25% damage instead of 60%
+      if (isBulwarkActive) {
+        rawDmg *= 0.25;
+        addToCombatLog(`🛡️ ¡RUNE BULWARK! Las runas defensivas de ${targetMonster.name} sofocan tu golpe en desventaja (daño reducido drásticamente al 25%).`);
       } else {
-        rawDmg *= BALANCE.COMBAT.triadConfig.loseDamageMult;
-        addToCombatLog(`⚠️ ¡DESVENTAJA! El ${STANCE_META[enemyStance].name} de ${targetMonster.name} resiste tu ${STANCE_META[activeStance].name} (daño al 60%).`);
+        // Quick Reaction -> Feint (Finta): Chance to recover from a failed stance and deal 100% normal damage
+        const chillStacks = combatStatusEffects
+          .filter(e => e.target === 'player' && e.type === 'chill')
+          .reduce((acc, curr) => acc + curr.stacks, 0);
+        const effectiveReaction = Math.max(0, (playerStats.attackSpeed || 0) * Math.pow(0.8, chillStacks));
+        const feintChance = Math.min(35, effectiveReaction * 0.6);
+
+        if (feintChance > 0 && Math.random() * 100 < feintChance) {
+          addToCombatLog(`🤺 ¡FINTA RÁPIDA! Pese a fallar la postura (${STANCE_META[activeStance].name} vs ${STANCE_META[enemyStance].name}), tu Reacción Rápida corrige el golpe (100% daño)!`);
+        } else {
+          rawDmg *= BALANCE.COMBAT.triadConfig.loseDamageMult;
+          addToCombatLog(`⚠️ ¡DESVENTAJA! El ${STANCE_META[enemyStance].name} de ${targetMonster.name} resiste tu ${STANCE_META[activeStance].name} (daño al 60%).`);
+        }
       }
     } else {
       addToCombatLog(`⚖️ Choque parejo: Ambas posturas son ${STANCE_META[activeStance].name}.`);
@@ -699,8 +806,19 @@ export const useCombatEngine = ({
     const onAttackDmg = processTriggers('onAttack', 'player', 0, targetIndex);
     monsterHp -= onAttackDmg;
 
-    // Asymptotic monster armor mitigation
-    const monsterMitigationPercent = BALANCE.COMBAT.calculateMitigationPercent(targetMonster.armor, targetMonster.level);
+    // Asymptotic monster armor mitigation (modified by Adamantine Shell if active)
+    let effectiveMonsterArmor = targetMonster.armor;
+    if (isAdamantineActive) {
+      if (clash === 'WIN') {
+        effectiveMonsterArmor = 0;
+        addToCombatLog(`💎 ¡FRACTURA DE ADAMANTINA! Tu triunfo de postura ha destrozado la coraza de ${targetMonster.name} (¡Armadura reducida a 0)!`);
+      } else {
+        effectiveMonsterArmor = targetMonster.armor * 4;
+        addToCombatLog(`💎 ¡ADAMANTINE SHELL! La densa coraza diamantina de ${targetMonster.name} (+300% armadura) repele el impacto.`);
+      }
+    }
+
+    const monsterMitigationPercent = BALANCE.COMBAT.calculateMitigationPercent(effectiveMonsterArmor, targetMonster.level);
     let dmg = Math.max(1, Math.floor(rawDmg * (1 - monsterMitigationPercent)));
     
     if (isShielded) {
@@ -782,6 +900,25 @@ export const useCombatEngine = ({
 
       // Group Attack Phase
       processTriggers('onStartTurn', 'enemy');
+
+      // Attempt to trigger onEnemyTurnStart Infamia (e.g. Arcane Shield)
+      const triggeredEnemyTurn = tryTriggerInfamy('onEnemyTurnStart');
+      if (triggeredEnemyTurn && triggeredEnemyTurn.infamyId === 'arcane') {
+          setCombatStatusEffects(prev => applyStatusEffects(prev, [{
+              id: `arcane-shield-${triggeredEnemyTurn.monster.id}-${Date.now()}`,
+              type: 'shield',
+              name: 'Arcane Shield',
+              duration: 1,
+              value: 1,
+              stacks: 1,
+              source: 'maledict',
+              target: 'enemy',
+              description: 'Nullifies next hit.',
+              targetId: triggeredEnemyTurn.monster.id
+          } as any]));
+          addToCombatLog(`✨ ¡ARCANE SHIELD! ${triggeredEnemyTurn.monster.name} levanta una barrera prismática.`);
+      }
+
       const updatedMonstersAfterDot = (processCombatEffects('enemy') as Monster[]) || activeMonstersRef.current;
 
       // Check victory after DoTs
@@ -838,6 +975,20 @@ export const useCombatEngine = ({
           const enemyStance = monster.currentStance || CombatStance.RESOLVE;
           const enemyClash = resolveTriadClash(enemyStance, combatStanceRef.current);
 
+          // Check Predator Stance Infamia on enemy
+          const predatorKey = `${monster.id}_predator`;
+          let isPredatorActive = infamyStatesRef.current[predatorKey]?.isActive;
+          if (!isPredatorActive && infamyStatesRef.current[predatorKey] && Date.now() >= infamyStatesRef.current[predatorKey].readyAtTimestamp) {
+              if (tryTriggerInfamy('onStanceClash', monster.id)) {
+                  isPredatorActive = true;
+              }
+          }
+
+          if (isPredatorActive && enemyClash === 'WIN') {
+              dmg *= 1.5;
+              addToCombatLog(`🐅 ¡PREDATOR STANCE! ${monster.name} explota tu vulnerabilidad (+50% de daño extra)!`);
+          }
+
           let finalMitigationPercent = baseMitigationPercent;
           if (enemyClash === 'WIN') {
               // Enemy attack has advantage over player stance
@@ -864,11 +1015,14 @@ export const useCombatEngine = ({
           }
 
           // Dynamically rotate monster stance for upcoming turn:
-          // Pick from the remaining postures so a 45% rotation actually shifts to another stance
           const otherStances = [CombatStance.WILL, CombatStance.SPIRIT, CombatStance.RESOLVE].filter(s => s !== enemyStance);
           const shouldRotate = Math.random() < 0.45;
           const nextStance = shouldRotate ? otherStances[Math.floor(Math.random() * otherStances.length)] : enemyStance;
-          const nextHidden = monster.rarity === 'Unique' ? (Math.random() < 0.6) : monster.isStanceHidden;
+          
+          // Check if Trickster Infamia is active on this monster
+          const tricksterKey = `${monster.id}_trickster`;
+          const isTricksterActive = !!infamyStatesRef.current[tricksterKey]?.isActive;
+          const nextHidden = isTricksterActive || (monster.rarity === 'Unique' ? (Math.random() < 0.6) : monster.isStanceHidden);
           workingMonsters[mIdx] = { ...workingMonsters[mIdx], currentStance: nextStance, isStanceHidden: nextHidden };
           
           // Check for Player Shield
@@ -978,9 +1132,31 @@ export const useCombatEngine = ({
     setIsPlayerTurn(isPlayer);
 
     if (isPlayer) {
-      setTurnCount(prev => prev + 1);
-      // Action Timer for Player: 2500ms
-      const ACTION_TIME_MS = 2500;
+      const nextTurn = turnCount + 1;
+      setTurnCount(nextTurn);
+      turnInfamyTriggeredRef.current = false;
+      checkInfamyExpirations(nextTurn);
+
+      // Attempt to trigger onPlayerTurnStart Infamia (Chronobreaker or Trickster)
+      const triggered = tryTriggerInfamy('onPlayerTurnStart');
+      let chronoActive = false;
+
+      if (triggered) {
+        if (triggered.infamyId === 'chronobreaker') {
+          chronoActive = true;
+          setIsChronobreakerActive(true);
+          addToCombatLog(`⏳ ¡CHRONOBREAKER! ${triggered.monster.name} altera el tiempo: ¡Solo tienes 1.2s para reaccionar!`);
+        } else if (triggered.infamyId === 'trickster') {
+          setActiveMonsters(prev => prev.map(m => m.id === triggered.monster.id ? { ...m, isStanceHidden: true } : m));
+          activeMonstersRef.current = activeMonstersRef.current.map(m => m.id === triggered.monster.id ? { ...m, isStanceHidden: true } : m);
+          addToCombatLog(`🃏 ¡TRICKSTER! ${triggered.monster.name} teje un velo de misterio y oculta su postura.`);
+        }
+      } else {
+        setIsChronobreakerActive(false);
+      }
+
+      // Action Timer for Player: 2500ms normal, or compressed 1200ms under Chronobreaker!
+      const ACTION_TIME_MS = chronoActive ? 1200 : 2500;
       const startTime = Date.now();
       setActionTimerProgress(100);
 
@@ -995,6 +1171,7 @@ export const useCombatEngine = ({
           clearInterval(actionIntervalRef.current);
           actionIntervalRef.current = null;
           setActionTimerProgress(0);
+          setIsChronobreakerActive(false);
           resolveCombatTurn(combatStanceRef.current);
           setTurnQueue(prev => prev.slice(1));
         }
@@ -1009,6 +1186,7 @@ export const useCombatEngine = ({
     } else {
       // Enemy Turn: brief pause of 900ms then execute
       setActionTimerProgress(0);
+      setIsChronobreakerActive(false);
       if (turnTimeoutRef.current) clearTimeout(turnTimeoutRef.current);
 
       turnTimeoutRef.current = setTimeout(() => {
@@ -1036,6 +1214,7 @@ export const useCombatEngine = ({
       clearInterval(actionIntervalRef.current);
       actionIntervalRef.current = null;
       setActionTimerProgress(0);
+      setIsChronobreakerActive(false);
       resolveCombatTurn(chosenStance);
       setTurnQueue(prev => prev.slice(1));
     }
@@ -1063,7 +1242,9 @@ export const useCombatEngine = ({
           combatStatusEffects,
           combatStance,
           actionTimerProgress,
-          lastClashResult
+          lastClashResult,
+          infamyStates,
+          isChronobreakerActive
       },
       battleActions: {
           startBattle,

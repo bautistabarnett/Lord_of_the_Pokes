@@ -16,43 +16,132 @@ export const RARITY_BG_COLORS = {
   [Rarity.UNIQUE]: 'bg-amber-950/40 border-amber-600',
 };
 
-// Complex Enemy Auras that react to gameplay
+// Complex Enemy Auras: Traits (permanentes) & Infamias (activables con cooldown temporal)
 export const MALEDICT_AFFIXES: MaledictAffix[] = [
+    // --- TRAITS (EFECTOS PERMANENTES) ---
     { 
-        id: 'vampiric', name: 'Vampiric', description: 'Heals 50% of damage dealt.', icon: '🩸', 
+        id: 'vampiric', 
+        name: 'Vampiric', 
+        description: 'Efecto permanente: Drena vida curando al enemigo un 50% del daño infligido.', 
+        category: 'TRAIT',
+        icon: '🩸', 
         statModifiers: { [StatType.LIFE_STEAL]: 50 } 
     },
     { 
-        id: 'thorns', name: 'Iron Maiden', description: 'Reflects 30% of damage received.', icon: '🌵', 
+        id: 'thorns', 
+        name: 'Iron Maiden', 
+        description: 'Efecto permanente: Piel de espinas que refleja un 30% del daño recibido directamente al héroe.', 
+        category: 'TRAIT',
+        icon: '🌵', 
         statModifiers: { [StatType.THORNS]: 30 } 
     },
     { 
-        id: 'molten', name: 'Molten', description: 'Hitting this enemy applies Burn to you.', icon: '🔥', 
+        id: 'molten', 
+        name: 'Molten', 
+        description: 'Efecto permanente: Al recibir un golpe, tiene 50% de probabilidad de quemar al jugador (5% HP/turno durante 2 turnos).', 
+        category: 'TRAIT',
+        icon: '🔥', 
         statModifiers: {},
         trigger: 'onTakeDamage',
-        triggerEffect: { type: 'debuff_player', chance: 0.5, value: 0.05 } // 5% HP Burn
+        triggerEffect: { type: 'debuff_player', chance: 0.5, value: 0.05 } 
     },
     { 
-        id: 'timewarp', name: 'Chronobreaker', description: 'Chance to shuffle Turn Order on hit.', icon: '⏳', 
-        statModifiers: { [StatType.DEXTERITY]: 20 },
-        trigger: 'onAttack',
-        triggerEffect: { type: 'shuffle_turn', chance: 0.3, value: 0 } 
-    },
-    { 
-        id: 'arcane', name: 'Arcane Shield', description: 'High Armor. Nullifies first hit each turn.', icon: '✨', 
-        statModifiers: { [StatType.INTELLIGENCE]: 30, [StatType.ARMOR]: 50 },
-        trigger: 'onStartTurn',
-        triggerEffect: { type: 'reflect', chance: 1.0, value: 0 } // Logic handled in App to simulate shield
-    },
-    { 
-        id: 'executioner', name: 'Executioner', description: 'Deals double damage if you are below 30% HP.', icon: '🪓', 
+        id: 'executioner', 
+        name: 'Executioner', 
+        description: 'Efecto permanente: +20% Probabilidad Crítica y duplica su daño si la vida del héroe cae por debajo del 30%.', 
+        category: 'TRAIT',
+        icon: '🪓', 
         statModifiers: { [StatType.CRIT_CHANCE]: 20 }
     },
     { 
-        id: 'plague', name: 'Plaguebearer', description: 'Radiates Poison at start of turn.', icon: '🤢', 
+        id: 'plague', 
+        name: 'Plaguebearer', 
+        description: 'Efecto permanente: +40% Vitalidad. Al inicio de cada turno enemigo, emite una nube de peste (3% HP daño continuo durante 3 turnos).', 
+        category: 'TRAIT',
+        icon: '🤢', 
         statModifiers: { [StatType.VITALITY]: 40 },
-        trigger: 'onStartTurn',
-        triggerEffect: { type: 'ground_hazard', chance: 1.0, value: 0.03 } // 3% HP Poison
+        trigger: 'onEnemyTurnStart',
+        triggerEffect: { type: 'ground_hazard', chance: 1.0, value: 0.03 } 
+    },
+
+    // --- INFAMIAS (ACTIVABLES CON COOLDOWN TEMPORAL) ---
+    { 
+        id: 'chronobreaker', 
+        name: 'Chronobreaker', 
+        description: 'Infamia activable: Al activarse, distorsiona el flujo temporal y acelera el tiempo de reacción del jugador (reduce el temporizador a 1.2s).', 
+        category: 'INFAMY',
+        icon: '⏳', 
+        cooldownSeconds: 8.0,
+        jitterSeconds: 1.5,
+        durationTurns: 1,
+        statModifiers: { [StatType.DEXTERITY]: 20 },
+        trigger: 'onPlayerTurnStart',
+        triggerEffect: { type: 'compress_action_timer', chance: 1.0, value: 1200 }
+    },
+    { 
+        id: 'arcane', 
+        name: 'Arcane Shield', 
+        description: 'Infamia activable: Conjura una barrera prismática de alta densidad que anula completamente el próximo impacto recibido.', 
+        category: 'INFAMY',
+        icon: '✨', 
+        cooldownSeconds: 7.5,
+        jitterSeconds: 1.0,
+        durationTurns: 1,
+        statModifiers: { [StatType.INTELLIGENCE]: 25, [StatType.ARMOR]: 40 },
+        trigger: 'onEnemyTurnStart',
+        triggerEffect: { type: 'reflect', chance: 1.0, value: 0 } 
+    },
+    { 
+        id: 'predator', 
+        name: 'Predator Stance', 
+        description: 'Infamia activable: El enemigo adopta un acecho salvaje. Si gana el choque de posturas (Clash WIN), asesta un castigo devastador (+50% daño extra).', 
+        category: 'INFAMY',
+        icon: '🐅', 
+        cooldownSeconds: 7.0,
+        jitterSeconds: 1.5,
+        durationTurns: 1,
+        statModifiers: { [StatType.STRENGTH]: 20 },
+        trigger: 'onStanceClash',
+        triggerEffect: { type: 'stance_punish', chance: 1.0, value: 1.5 } 
+    },
+    { 
+        id: 'bulwark', 
+        name: 'Rune Bulwark', 
+        description: 'Infamia activable: Proyecta runas defensivas. Si el héroe falla la postura (Clash LOSE), el daño del jugador se reduce al 25% (fuerte castigo a ataques desatentos).', 
+        category: 'INFAMY',
+        icon: '🛡️', 
+        cooldownSeconds: 7.0,
+        jitterSeconds: 1.0,
+        durationTurns: 1,
+        statModifiers: { [StatType.ARMOR]: 50 },
+        trigger: 'onStanceClash',
+        triggerEffect: { type: 'bulwark_guard', chance: 1.0, value: 0.25 }
+    },
+    { 
+        id: 'adamantine', 
+        name: 'Adamantine Shell', 
+        description: 'Infamia activable: Coraza de diamante que otorga +300% armadura. Si el héroe gana el choque de postura, la coraza se fractura y la armadura se reduce a 0.', 
+        category: 'INFAMY',
+        icon: '💎', 
+        cooldownSeconds: 10.0,
+        jitterSeconds: 2.0,
+        durationTurns: 2,
+        statModifiers: { [StatType.ARMOR]: 100 },
+        trigger: 'onStanceClash',
+        triggerEffect: { type: 'shield_break', chance: 1.0, value: 3.0 }
+    },
+    { 
+        id: 'trickster', 
+        name: 'Trickster', 
+        description: 'Infamia activable: Velo ilusorio que oculta por completo la postura del enemigo bajo un signo de interrogación (❓) durante 1-2 turnos.', 
+        category: 'INFAMY',
+        icon: '🃏', 
+        cooldownSeconds: 8.5,
+        jitterSeconds: 1.5,
+        durationTurns: 2,
+        statModifiers: { [StatType.DEXTERITY]: 15 },
+        trigger: 'onPlayerTurnStart',
+        triggerEffect: { type: 'hide_stance', chance: 1.0, value: 1 }
     }
 ];
 

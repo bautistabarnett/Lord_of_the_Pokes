@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { Monster, PlayerStats, CombatStatusEffect, ActiveEffect, CombatStance, MaledictAffix, TerrainType } from '../types';
+import { Monster, PlayerStats, CombatStatusEffect, ActiveEffect, CombatStance, MaledictAffix, TerrainType, InfamyRuntimeState } from '../types';
 import { BALANCE, STANCE_META, TriadClashResult } from '../services/gameBalance';
 import { TERRAIN_BATTLEBACKS, DEFAULT_HERO_AVATAR } from '../services/spriteCatalog';
 import GameIcon from './GameIcon';
@@ -33,6 +33,8 @@ interface CombatModalProps {
   onSelectTarget?: (id: string) => void;
   potionsRemaining?: number;
   onUsePotion?: () => void;
+  infamyStates?: Record<string, InfamyRuntimeState>;
+  isChronobreakerActive?: boolean;
 }
 
 // Fallback if activeMonsters not passed
@@ -86,12 +88,12 @@ const EFFECT_ICONS: Record<string, string> = {
 
 type AnyEffect = CombatStatusEffect | ActiveEffect | MaledictAffix;
 
-const AuraTooltip: React.FC<{ effect: AnyEffect; rect: DOMRect | null }> = React.memo(({ effect, rect }) => {
+const AuraTooltip: React.FC<{ effect: AnyEffect; rect: DOMRect | null; infamyState?: InfamyRuntimeState }> = React.memo(({ effect, rect, infamyState }) => {
   if (!rect) return null;
 
   const viewportHeight = window.innerHeight;
   const viewportWidth = window.innerWidth;
-  const tooltipWidth = 240;
+  const tooltipWidth = 250;
   
   const spaceAbove = rect.top;
   const spaceBelow = viewportHeight - rect.bottom;
@@ -103,20 +105,43 @@ const AuraTooltip: React.FC<{ effect: AnyEffect; rect: DOMRect | null }> = React
   const clampedLeft = Math.max(10, Math.min(left, viewportWidth - tooltipWidth - 10));
   const transform = showBelow ? 'translateX(0)' : 'translateY(-100%)';
 
+  const isMaledict = (e: any): e is MaledictAffix => 'statModifiers' in e;
+
   let durationText = "";
-  if ('duration' in effect) {
+  if (isMaledict(effect)) {
+     if (effect.category === 'TRAIT') {
+        durationText = "Efecto Permanente";
+     } else {
+        durationText = `Cooldown: ~${effect.cooldownSeconds || 8}s`;
+     }
+  } else if ('duration' in effect) {
      const dur = (effect as any).duration;
      if ('type' in effect) durationText = `${dur} Turn${dur !== 1 ? 's' : ''}`;
      else durationText = `${dur} Battle${dur !== 1 ? 's' : ''}`;
   } else {
      durationText = "Permanent Aura";
   }
-
-  const isMaledict = (e: any): e is MaledictAffix => 'statModifiers' in e;
   
-  const typeLabel = isMaledict(effect) ? "Maledict Aura" : 
-                    ('isDebuff' in effect && effect.isDebuff) || ('type' in effect && ['burn','poison','freeze','blind','chill','stun'].includes((effect as any).type)) 
-                    ? "Debuff" : "Buff";
+  const typeLabel = isMaledict(effect) 
+     ? (effect.category === 'TRAIT' ? "Trait (Pasivo)" : "Infamia (Activable)")
+     : (('isDebuff' in effect && effect.isDebuff) || ('type' in effect && ['burn','poison','freeze','blind','chill','stun'].includes((effect as any).type)) 
+         ? "Debuff" : "Buff");
+
+  const typeBadgeClass = isMaledict(effect)
+     ? (effect.category === 'TRAIT' ? 'bg-purple-900/60 text-purple-300 border-purple-500' : 'bg-amber-900/60 text-amber-300 border-amber-500')
+     : (typeLabel === 'Debuff' ? 'bg-red-900/50 text-red-300 border-red-500' : 'bg-blue-900/50 text-blue-300 border-blue-500');
+
+  let infamyStatusBadge = null;
+  if (isMaledict(effect) && effect.category === 'INFAMY') {
+     if (infamyState?.isActive) {
+        infamyStatusBadge = <span className="text-amber-400 font-bold animate-pulse">🔥 ACTIVO (En curso)</span>;
+     } else if (infamyState && Date.now() < infamyState.readyAtTimestamp) {
+        const remSec = Math.max(1, Math.ceil((infamyState.readyAtTimestamp - Date.now()) / 1000));
+        infamyStatusBadge = <span className="text-stone-400 font-mono">⏳ En recarga (~{remSec}s)</span>;
+     } else {
+        infamyStatusBadge = <span className="text-emerald-400 font-bold">⚡ Listo para activarse</span>;
+     }
+  }
 
   return createPortal(
     <div 
@@ -131,7 +156,7 @@ const AuraTooltip: React.FC<{ effect: AnyEffect; rect: DOMRect | null }> = React
              <div className="relative z-10">
                 <div className="flex justify-between items-center border-b border-stone-700 pb-2 mb-2">
                     <span className="font-bold text-stone-100 text-sm uppercase tracking-wider font-serif">{effect.name}</span>
-                    <span className={`text-[9px] uppercase font-bold px-1.5 py-0.5 rounded border border-white/10 ${typeLabel === 'Debuff' ? 'bg-red-900/50 text-red-300' : typeLabel === 'Maledict Aura' ? 'bg-purple-900/50 text-purple-300' : 'bg-blue-900/50 text-blue-300'}`}>
+                    <span className={`text-[9px] uppercase font-bold px-1.5 py-0.5 rounded border ${typeBadgeClass}`}>
                         {typeLabel}
                     </span>
                 </div>
@@ -140,13 +165,22 @@ const AuraTooltip: React.FC<{ effect: AnyEffect; rect: DOMRect | null }> = React
                     {effect.description || "Description unavailable."}
                 </p>
 
-                <div className="flex justify-between items-center text-[10px] bg-black/40 p-1.5 rounded font-mono border border-stone-800">
-                    <span className="text-stone-500 font-bold">DURATION</span>
-                    <span className={`font-bold ${durationText === "Permanent Aura" ? "text-purple-400" : "text-stone-200"}`}>{durationText}</span>
+                <div className="space-y-1">
+                    <div className="flex justify-between items-center text-[10px] bg-black/40 p-1.5 rounded font-mono border border-stone-800">
+                        <span className="text-stone-500 font-bold">DURACIÓN</span>
+                        <span className={`font-bold ${durationText.includes("Permanente") ? "text-purple-400" : "text-stone-200"}`}>{durationText}</span>
+                    </div>
+                    {infamyStatusBadge && (
+                        <div className="flex justify-between items-center text-[10px] bg-black/40 p-1.5 rounded font-mono border border-stone-800">
+                            <span className="text-stone-500 font-bold">ESTADO</span>
+                            {infamyStatusBadge}
+                        </div>
+                    )}
                 </div>
+
                 {('value' in effect && (effect as any).value !== 0) && (
                     <div className="text-[10px] text-stone-500 mt-1 font-mono text-right">
-                         Strength: {(effect as any).value}
+                         Potencia: {(effect as any).value}
                     </div>
                 )}
              </div>
@@ -158,10 +192,11 @@ const AuraTooltip: React.FC<{ effect: AnyEffect; rect: DOMRect | null }> = React
 
 const AuraBadge: React.FC<{ 
     effect: AnyEffect; 
-    onHover: (e: React.MouseEvent<HTMLDivElement>, effect: AnyEffect) => void; 
+    onHover: (e: React.MouseEvent<HTMLDivElement>, effect: AnyEffect, infamyState?: InfamyRuntimeState) => void; 
     onLeave: () => void; 
     small?: boolean;
-}> = React.memo(({ effect, onHover, onLeave, small }) => {
+    infamyState?: InfamyRuntimeState;
+}> = React.memo(({ effect, onHover, onLeave, small, infamyState }) => {
     
     const isCombat = (e: any): e is CombatStatusEffect => 'type' in e && 'stacks' in e;
     const isMaledict = (e: any): e is MaledictAffix => 'statModifiers' in e;
@@ -182,9 +217,27 @@ const AuraBadge: React.FC<{
     } else {
         icon = 'icon' in effect ? (effect as any).icon : '❓';
         if (isMaledict(effect)) {
-            borderColor = 'border-purple-500';
-            bgColor = 'bg-purple-950/60';
-            badgeText = null; 
+            if (effect.category === 'TRAIT') {
+                borderColor = 'border-purple-500';
+                bgColor = 'bg-purple-950/70';
+                badgeText = 'TRT';
+            } else {
+                // INFAMY
+                if (infamyState?.isActive) {
+                    borderColor = 'border-amber-400 animate-pulse ring-1 ring-amber-400';
+                    bgColor = 'bg-amber-900/90 shadow-[0_0_12px_rgba(245,158,11,0.6)]';
+                    badgeText = 'ACT';
+                } else if (infamyState && Date.now() < infamyState.readyAtTimestamp) {
+                    const remSec = Math.max(1, Math.ceil((infamyState.readyAtTimestamp - Date.now()) / 1000));
+                    borderColor = 'border-stone-700';
+                    bgColor = 'bg-stone-900/80 opacity-70';
+                    badgeText = `${remSec}s`;
+                } else {
+                    borderColor = 'border-amber-500/80';
+                    bgColor = 'bg-amber-950/60';
+                    badgeText = 'INF';
+                }
+            }
         } else {
             badgeText = `${(effect as ActiveEffect).duration}`;
             const isDebuff = (effect as ActiveEffect).isDebuff;
@@ -199,13 +252,13 @@ const AuraBadge: React.FC<{
     return (
         <div 
             className={`relative ${sizeClass} shrink-0 border ${borderColor} ${bgColor} rounded flex items-center justify-center cursor-help transition-all duration-200 hover:scale-110 hover:shadow-[0_0_15px_rgba(255,255,255,0.15)] hover:z-20 group aura-badge`}
-            onMouseEnter={(e) => onHover(e, effect)}
-            onClick={(e) => onHover(e, effect)}
+            onMouseEnter={(e) => onHover(e, effect, infamyState)}
+            onClick={(e) => onHover(e, effect, infamyState)}
             onMouseLeave={onLeave}
         >
             <span className={`${textSize} filter drop-shadow opacity-90 group-hover:opacity-100`}>{icon}</span>
             {badgeText && (
-                 <span className="absolute -bottom-1 -right-1 bg-black text-[7px] lg:text-[9px] text-stone-300 px-0.5 lg:px-1 rounded leading-none border border-stone-800 shadow z-10 font-mono font-bold">
+                 <span className="absolute -bottom-1 -right-1 bg-black text-[7px] lg:text-[8px] text-stone-200 px-0.5 rounded leading-none border border-stone-800 shadow z-10 font-mono font-bold">
                     {badgeText}
                  </span>
             )}
@@ -238,7 +291,9 @@ const CombatModal: React.FC<CombatModalProps> = ({
   selectedTargetId,
   onSelectTarget,
   potionsRemaining = 0,
-  onUsePotion
+  onUsePotion,
+  infamyStates,
+  isChronobreakerActive = false
 }) => {
   const monsters = getMonsters(monster, activeMonsters);
   const targetMonster = (selectedTargetId ? monsters.find(m => m.id === selectedTargetId && m.currentHp > 0) : null) 
@@ -254,14 +309,14 @@ const CombatModal: React.FC<CombatModalProps> = ({
   const [screenShake, setScreenShake] = useState<'none' | 'light' | 'heavy'>('none');
   const prevPlayerHp = useRef(playerHp);
   const prevMonsterHps = useRef<Record<string, number>>({});
-  const [hoveredEffect, setHoveredEffect] = useState<{ effect: AnyEffect; rect: DOMRect } | null>(null);
+  const [hoveredEffect, setHoveredEffect] = useState<{ effect: AnyEffect; rect: DOMRect; infamyState?: InfamyRuntimeState } | null>(null);
   const [showEnemyInspect, setShowEnemyInspect] = useState<boolean>(false);
   const [showHeroStats, setShowHeroStats] = useState<boolean>(false);
 
-  const handleEffectHover = (e: React.MouseEvent<HTMLDivElement>, effect: AnyEffect) => {
+  const handleEffectHover = (e: React.MouseEvent<HTMLDivElement>, effect: AnyEffect, infamyState?: InfamyRuntimeState) => {
       if (hoveredEffect?.effect === effect) return;
       const rect = e.currentTarget.getBoundingClientRect();
-      setHoveredEffect({ effect, rect });
+      setHoveredEffect({ effect, rect, infamyState });
   };
   
   const handleEffectLeave = () => {
@@ -338,7 +393,7 @@ const CombatModal: React.FC<CombatModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/95 backdrop-blur-sm h-[100dvh] w-[100dvw] overflow-hidden">
-       {hoveredEffect && <AuraTooltip effect={hoveredEffect.effect} rect={hoveredEffect.rect} />}
+       {hoveredEffect && <AuraTooltip effect={hoveredEffect.effect} rect={hoveredEffect.rect} infamyState={hoveredEffect.infamyState} />}
 
        <div className={`w-full h-full flex flex-col relative pointer-events-auto transition-transform ${screenShake === 'heavy' ? 'animate-screen-shake-heavy' : screenShake === 'light' ? 'animate-screen-shake-light' : ''}`}>
            {/* Critical Hit / Heavy Impact Vignette */}
@@ -431,13 +486,15 @@ const CombatModal: React.FC<CombatModalProps> = ({
                      {/* Action Timer Bar during Player's Turn */}
                      {isPlayerTurn && (
                         <div className="w-full max-w-[210px] flex flex-col gap-0.5 items-center px-1">
-                            <div className="flex justify-between w-full text-[9px] font-mono text-amber-300 font-bold px-0.5">
-                                <span className="flex items-center gap-1">⏱️ Tu Turno</span>
-                                <span>¡Elige Postura!</span>
+                            <div className={`flex justify-between w-full text-[9px] font-mono font-bold px-0.5 ${isChronobreakerActive ? 'text-rose-400 animate-pulse' : 'text-amber-300'}`}>
+                                <span className="flex items-center gap-1">
+                                    {isChronobreakerActive ? '⏳ ¡CHRONOBREAKER!' : '⏱️ Tu Turno'}
+                                </span>
+                                <span>{isChronobreakerActive ? '¡1.2s RÁPIDO!' : '¡Elige Postura!'}</span>
                             </div>
-                            <div className="w-full h-1.5 bg-stone-950 rounded-full overflow-hidden border border-amber-600/60 shadow-inner">
+                            <div className={`w-full h-1.5 bg-stone-950 rounded-full overflow-hidden border shadow-inner ${isChronobreakerActive ? 'border-red-500 shadow-[0_0_8px_rgba(244,63,94,0.7)]' : 'border-amber-600/60'}`}>
                                 <div 
-                                    className="h-full bg-gradient-to-r from-amber-500 via-yellow-400 to-amber-300 transition-all duration-75"
+                                    className={`h-full transition-all duration-75 ${isChronobreakerActive ? 'bg-gradient-to-r from-red-600 via-rose-500 to-amber-400' : 'bg-gradient-to-r from-amber-500 via-yellow-400 to-amber-300'}`}
                                     style={{ width: `${actionTimerProgress}%` }}
                                 />
                             </div>
@@ -558,9 +615,11 @@ const CombatModal: React.FC<CombatModalProps> = ({
                                                     )}
                                                 </div>
                                                 <div className="flex gap-1">
-                                                    {[...m.maledicts, ...combatStatusEffects.filter(e => e.target === 'enemy' && (e as any).targetId === m.id)].slice(0, 3).map((e, i) => (
-                                                        <AuraBadge key={i} effect={e} onHover={handleEffectHover} onLeave={handleEffectLeave} small />
-                                                    ))}
+                                                    {[...m.maledicts, ...combatStatusEffects.filter(e => e.target === 'enemy' && (e as any).targetId === m.id)].slice(0, 3).map((e, i) => {
+                                                        const isM = 'statModifiers' in e;
+                                                        const infState = isM && infamyStates ? infamyStates[`${m.id}_${e.id}`] : undefined;
+                                                        return <AuraBadge key={i} effect={e} infamyState={infState} onHover={handleEffectHover} onLeave={handleEffectLeave} small />;
+                                                    })}
                                                 </div>
                                             </div>
                                             <HealthBar current={m.currentHp} max={m.maxHp} isEnemy small />
@@ -614,9 +673,11 @@ const CombatModal: React.FC<CombatModalProps> = ({
                                     <StatPlate label="Arm" value={targetMonster.armor} icon="🛡️" />
                                 </div>
                                 <div className="flex overflow-x-auto no-scrollbar gap-1 min-h-[24px] lg:min-h-[36px] items-center justify-end sm:justify-start mask-gradient-left sm:mask-gradient-right">
-                                    {[...targetMonster.maledicts, ...combatStatusEffects.filter(e => e.target === 'enemy' && (e as any).targetId === targetMonster.id)].map((e, idx) => (
-                                        <AuraBadge key={`${e.id}-${idx}`} effect={e} onHover={handleEffectHover} onLeave={handleEffectLeave} />
-                                    ))}
+                                    {[...targetMonster.maledicts, ...combatStatusEffects.filter(e => e.target === 'enemy' && (e as any).targetId === targetMonster.id)].map((e, idx) => {
+                                        const isM = 'statModifiers' in e;
+                                        const infState = isM && infamyStates ? infamyStates[`${targetMonster.id}_${e.id}`] : undefined;
+                                        return <AuraBadge key={`${e.id}-${idx}`} effect={e} infamyState={infState} onHover={handleEffectHover} onLeave={handleEffectLeave} />;
+                                    })}
                                 </div>
                             </div>
                         </div>

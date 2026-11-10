@@ -1136,6 +1136,8 @@ export default function App() {
             onSelectTarget={battleActions.setSelectedTargetId}
             potionsRemaining={battleState.potionsRemaining}
             onUsePotion={battleActions.usePotion}
+            infamyStates={battleState.infamyStates}
+            isChronobreakerActive={battleState.isChronobreakerActive}
           />
       )}
 

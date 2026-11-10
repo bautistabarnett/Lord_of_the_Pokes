@@ -213,8 +213,21 @@ export const generateMonster = (level: number, difficultyModifier: number = 1.0,
 
   const maledicts: MaledictAffix[] = [];
   if (config.maledictCount > 0) {
-      const shuffled = [...MALEDICT_AFFIXES].sort(() => 0.5 - Math.random());
-      maledicts.push(...shuffled.slice(0, config.maledictCount));
+      const traits = [...MALEDICT_AFFIXES.filter(m => m.category === 'TRAIT')].sort(() => 0.5 - Math.random());
+      const infamies = [...MALEDICT_AFFIXES.filter(m => m.category === 'INFAMY')].sort(() => 0.5 - Math.random());
+
+      if (config.maledictCount === 1) {
+          const pool = [...MALEDICT_AFFIXES].sort(() => 0.5 - Math.random());
+          maledicts.push(pool[0]);
+      } else if (config.maledictCount === 2) {
+          if (traits.length > 0) maledicts.push(traits[0]);
+          if (infamies.length > 0) maledicts.push(infamies[0]);
+      } else {
+          maledicts.push(traits[0]);
+          maledicts.push(infamies[0]);
+          const remainingPool = [...traits.slice(1), ...infamies.slice(1)].sort(() => 0.5 - Math.random());
+          maledicts.push(...remainingPool.slice(0, config.maledictCount - 2));
+      }
   }
 
   let bonusDmg = 0, bonusArmor = 0, bonusCrit = 0, bonusLifeSteal = 0, bonusThorns = 0;

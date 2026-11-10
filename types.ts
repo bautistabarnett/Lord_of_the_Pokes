@@ -234,20 +234,35 @@ export interface PlayerStats {
   activeTitleId?: string; // Mastery Title currently granting its combat trigger
 }
 
+export type MaledictCategory = 'TRAIT' | 'INFAMY';
+
 export interface MaledictAffix {
     id: string;
     name: string;
     description: string;
+    category: MaledictCategory; // 'TRAIT' (Efecto permanente) | 'INFAMY' (Efecto activable con cooldown temporal)
     statModifiers: Partial<Record<StatType, number>>; 
     icon: string;
     
+    // Configuración para 'INFAMY' (activables con cooldown temporal)
+    cooldownSeconds?: number; // Periodo base de recarga en tiempo real (segundos)
+    jitterSeconds?: number;   // Variación orgánica (±X segundos) para evitar predictibilidad
+    durationTurns?: number;   // Duración en turnos del efecto activado
+
     // Reactive Logic
-    trigger?: CombatTrigger;
+    trigger?: CombatTrigger | 'onStanceClash' | 'onPlayerTurnStart' | 'onEnemyTurnStart';
     triggerEffect?: {
-        type: 'reflect' | 'lifesteal_burst' | 'shuffle_turn' | 'debuff_player' | 'ground_hazard';
+        type: 'reflect' | 'lifesteal_burst' | 'shuffle_turn' | 'debuff_player' | 'ground_hazard' | 'compress_action_timer' | 'stance_punish' | 'shield_break' | 'hide_stance' | 'bulwark_guard';
         chance: number;
         value: number;
     }
+}
+
+export interface InfamyRuntimeState {
+    readyAtTimestamp: number;
+    isActive: boolean;
+    activeUntilTurn?: number;
+    fracturedUntilTurn?: number;
 }
 
 export interface Monster {
