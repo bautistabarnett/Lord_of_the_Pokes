@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { SaveSlotMetadata } from '../types';
 import { storageService } from '../services/storageService';
+import { GAME_VERSION } from '../constants';
 import GameIcon from './GameIcon';
 
 interface MainMenuProps {
@@ -163,7 +164,7 @@ export const MainMenu: React.FC<MainMenuProps> = ({ onStartGame }) => {
                  
                  {/* Footer - Static margin top to ensure it pushes below buttons even on small screens */}
                  <div className="text-stone-700 text-[10px] lg:text-xs mt-auto pt-1 lg:pt-4 shrink-0 pb-safe">
-                     v1.1.0 • Loot of the Void
+                     {GAME_VERSION} • Loot of the Void
                  </div>
              </div>
         </div>

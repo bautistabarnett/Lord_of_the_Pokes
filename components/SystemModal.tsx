@@ -1,6 +1,7 @@
 
 import React from 'react';
 import { BaseModal } from './BaseModal';
+import { GAME_VERSION } from '../constants';
 
 interface SystemModalProps {
   currentSlotId: number;
@@ -64,6 +65,10 @@ const SystemModal: React.FC<SystemModalProps> = ({ currentSlotId, onSave, onQuit
             >
                 Quit (Unsaved)
             </button>
+
+            <div className="text-center text-stone-600 text-[10px] font-mono mt-1">
+                Loot of the Void {GAME_VERSION}
+            </div>
         </BaseModal.Body>
     </BaseModal.Container>
   );

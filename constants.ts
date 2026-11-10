@@ -2,6 +2,8 @@
 
 import { Rarity, ItemSlot, StatType, PassiveSkill, MapNode, ExplorationEvent, EventType, SmugglingBundle, PassiveTheme, PassiveSetBonus, MonsterRarity, MaledictAffix, SynergyDefinition, TerrainType } from './types';
 
+export const GAME_VERSION = 'v2.0';
+
 export const RARITY_COLORS = {
   [Rarity.COMMON]: 'text-stone-300', // White/Grey
   [Rarity.MAGIC]: 'text-blue-400',   // Blue
