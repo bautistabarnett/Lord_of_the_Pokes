@@ -60,7 +60,7 @@ const StatPlate: React.FC<{ label: string; value: string | number; icon: string;
 const HealthBar: React.FC<{ current: number; max: number; isEnemy?: boolean; label?: string, small?: boolean }> = React.memo(({ current, max, isEnemy, label, small }) => {
   const percentage = Math.max(0, Math.min(100, (current / max) * 100));
   const barColor = isEnemy ? 'bg-gradient-to-r from-red-900 via-red-600 to-red-900' : 'bg-gradient-to-r from-green-900 via-green-600 to-green-900';
-  const heightClass = small ? 'h-2 lg:h-3' : 'h-3.5 lg:h-6 xl:h-7';
+  const heightClass = small ? 'h-2.5 lg:h-3' : 'h-4 sm:h-5 lg:h-6 xl:h-7';
   
   return (
     <div className="w-full relative group shadow-[0_0_15px_rgba(0,0,0,0.5)]">
@@ -69,7 +69,7 @@ const HealthBar: React.FC<{ current: number; max: number; isEnemy?: boolean; lab
           <div className={`h-full transition-all duration-300 ease-out ${barColor} relative`} style={{ width: `${percentage}%` }}>
               <div className="absolute inset-0 bg-gradient-to-b from-white/10 to-transparent"></div>
           </div>
-          <div className="absolute inset-0 flex items-center justify-center text-[9px] lg:text-xs font-bold text-white drop-shadow-[0_1px_2px_rgba(0,0,0,1)] z-10 font-mono tracking-widest">
+          <div className="absolute inset-0 flex items-center justify-center text-[10px] lg:text-xs font-bold text-white drop-shadow-[0_1px_2px_rgba(0,0,0,1)] z-10 font-mono tracking-wider">
              {Math.max(0, Math.ceil(current))} / {max}
           </div>
        </div>

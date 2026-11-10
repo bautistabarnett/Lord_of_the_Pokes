@@ -995,8 +995,8 @@ export default function App() {
               onDrop={(e) => handleDrop(e, 'equipment', slot)}
               style={{ touchAction: 'manipulation' }}
           >
-              <div className={`w-8 h-8 sm:w-9 sm:h-9 lg:w-12 lg:h-12 xl:w-14 xl:h-14 2xl:w-16 2xl:h-16 border rounded-[4px] ${item ? (item.rarity === 'Unique' ? 'border-amber-500' : 'border-stone-600') : 'border-stone-800 bg-[#0a0a0a]'} flex items-center justify-center relative shadow-inner transition-all hover:border-stone-400`}>
-                 {item ? <GameIcon name={item.icon} imageUrl={item.imageUrl} className={`w-5 h-5 sm:w-6 sm:h-6 lg:w-8 lg:h-8 xl:w-10 xl:h-10 2xl:w-12 2xl:h-12 ${RARITY_COLORS[item.rarity]}`} /> : <GameIcon name={SLOT_ICONS[slot]} className="w-4 h-4 sm:w-5 sm:h-5 lg:w-7 lg:h-7 opacity-20 text-stone-500" />}
+              <div className={`w-11 h-11 xs:w-12 xs:h-12 sm:w-9 sm:h-9 lg:w-12 lg:h-12 xl:w-14 xl:h-14 2xl:w-16 2xl:h-16 border rounded-[4px] ${item ? (item.rarity === 'Unique' ? 'border-amber-500 shadow-[0_0_10px_rgba(245,158,11,0.3)]' : 'border-stone-600') : 'border-stone-800 bg-[#0a0a0a]'} flex items-center justify-center relative shadow-inner transition-all hover:border-stone-400`}>
+                 {item ? <GameIcon name={item.icon} imageUrl={item.imageUrl} className={`w-7 h-7 xs:w-8 xs:h-8 sm:w-6 sm:h-6 lg:w-8 lg:h-8 xl:w-10 xl:h-10 2xl:w-12 2xl:h-12 ${RARITY_COLORS[item.rarity]}`} /> : <GameIcon name={SLOT_ICONS[slot]} className="w-5 h-5 xs:w-6 xs:h-6 sm:w-4 sm:h-4 lg:w-7 lg:h-7 opacity-20 text-stone-500" />}
               </div>
           </div>
       );
@@ -1116,12 +1116,12 @@ export default function App() {
               
               {/* Avatar & Slots */}
               <div className="relative flex-grow flex flex-col items-center justify-center min-h-0 gap-1.5 lg:gap-2">
-                  <div className="w-full aspect-square max-w-[148px] sm:max-w-[152px] lg:max-w-[230px] xl:max-w-[260px] 2xl:max-w-[320px] bg-[#080808] rounded-t-full border border-stone-800 relative overflow-visible shadow-inner flex items-center justify-center shrink-0 my-auto">
+                  <div className="w-full aspect-square max-w-[240px] xs:max-w-[260px] sm:max-w-[152px] lg:max-w-[230px] xl:max-w-[260px] 2xl:max-w-[320px] bg-[#080808] rounded-t-full border border-stone-800 relative overflow-visible shadow-inner flex items-center justify-center shrink-0 my-auto">
                     {/* Centered Animated Hero Trainer Sprite */}
                     <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-80">
                         <img 
                             src={heroImageUrl || DEFAULT_HERO_AVATAR} 
-                            alt="Hero Trainer"
+                            alt="Hero Trainer" 
                             className="w-3/5 h-3/5 object-contain drop-shadow-[0_8px_20px_rgba(0,0,0,0.9)]" 
                         />
                     </div>
@@ -1149,7 +1149,7 @@ export default function App() {
                   </div>
               </div>
               
-              <button onClick={() => setShowStatsModal(true)} className="w-full mt-1.5 lg:mt-3 py-1.5 lg:py-3 bg-stone-900 hover:bg-stone-800 border border-stone-700 text-amber-500 font-bold uppercase tracking-widest text-[10px] lg:text-sm transition-colors shrink-0 rounded">
+              <button onClick={() => setShowStatsModal(true)} className="w-full mt-1.5 lg:mt-3 py-2.5 lg:py-3 bg-stone-900 hover:bg-stone-800 active:scale-98 border border-stone-700 hover:border-amber-500/60 text-amber-500 font-bold uppercase tracking-widest text-xs lg:text-sm transition-all shrink-0 rounded shadow touch-manipulation">
                 Full Stats {statPoints > 0 && <span className="text-green-500 ml-1">(+{statPoints})</span>}
               </button>
           </div>
@@ -1181,7 +1181,7 @@ export default function App() {
               <button 
                 onClick={handleExplore} 
                 disabled={battleState.isFighting} 
-                className="px-4 py-1.5 lg:px-8 lg:py-3 bg-gradient-to-b from-stone-800 to-stone-900 border border-stone-600 text-stone-200 font-bold uppercase tracking-[0.12em] hover:from-stone-700 hover:to-stone-800 hover:text-white hover:border-stone-400 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg text-xs lg:text-base rounded shrink-0"
+                className="px-5 py-2 lg:px-8 lg:py-3 bg-gradient-to-b from-stone-800 to-stone-900 border border-stone-600 text-stone-200 font-extrabold uppercase tracking-[0.14em] hover:from-stone-700 hover:to-stone-800 hover:text-white hover:border-stone-400 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg text-xs lg:text-base rounded shrink-0 touch-manipulation"
               >
                 Explore
               </button>
@@ -1214,23 +1214,23 @@ export default function App() {
               </div>
 
               {/* Bottom Controls */}
-              <div className="grid grid-cols-4 gap-1.5 lg:gap-2 h-8 lg:h-12 shrink-0">
-                  <button onClick={() => setShowMapModal(true)} className="bg-stone-900 border border-stone-700 hover:border-amber-500 hover:text-amber-500 text-stone-400 rounded flex items-center justify-center gap-1 lg:gap-2 transition-colors px-1">
+              <div className="grid grid-cols-4 gap-1.5 lg:gap-2 h-10 lg:h-12 shrink-0">
+                  <button onClick={() => setShowMapModal(true)} className="bg-stone-900 border border-stone-700 hover:border-amber-500 hover:text-amber-500 text-stone-400 rounded flex items-center justify-center gap-1 lg:gap-2 transition-all active:scale-95 touch-manipulation px-1 shadow-sm">
                     <span className="text-sm lg:text-lg">🗺️</span> <span className="text-[10px] lg:text-xs uppercase font-bold truncate">Map</span>
                   </button>
-                  <button onClick={() => setShowSmugglingModal(true)} className="bg-stone-900 border border-stone-700 hover:border-amber-500 hover:text-amber-500 text-stone-400 rounded flex items-center justify-center gap-1 lg:gap-2 transition-colors px-1">
+                  <button onClick={() => setShowSmugglingModal(true)} className="bg-stone-900 border border-stone-700 hover:border-amber-500 hover:text-amber-500 text-stone-400 rounded flex items-center justify-center gap-1 lg:gap-2 transition-all active:scale-95 touch-manipulation px-1 shadow-sm">
                     <span className="text-sm lg:text-lg">💰</span> <span className="text-[10px] lg:text-xs uppercase font-bold truncate">Smuggler</span>
                   </button>
-                  <button onClick={() => setShowSkillsModal(true)} className="bg-stone-900 border border-stone-700 hover:border-amber-500 hover:text-amber-500 text-stone-400 rounded flex items-center justify-center gap-1 lg:gap-2 transition-colors relative px-1">
+                  <button onClick={() => setShowSkillsModal(true)} className="bg-stone-900 border border-stone-700 hover:border-amber-500 hover:text-amber-500 text-stone-400 rounded flex items-center justify-center gap-1 lg:gap-2 transition-all active:scale-95 touch-manipulation relative px-1 shadow-sm">
                     <span className="text-sm lg:text-lg">📜</span> <span className="text-[10px] lg:text-xs uppercase font-bold truncate">Skills</span>
                     {/* Badge for skill points */}
                     {skillPoints > 0 && (
-                        <div className="absolute -top-1 -right-1 w-4 h-4 bg-amber-500 text-black text-[9px] font-bold rounded-full animate-bounce flex items-center justify-center">
+                        <div className="absolute -top-1 -right-1 w-4 h-4 bg-amber-500 text-black text-[9px] font-bold rounded-full animate-bounce flex items-center justify-center shadow">
                             {skillPoints}
                         </div>
                     )}
                   </button>
-                  <button onClick={() => setShowSystemModal(true)} className="bg-stone-900 border border-stone-700 hover:border-red-500 hover:text-red-500 text-stone-400 rounded flex items-center justify-center gap-1 lg:gap-2 transition-colors px-1">
+                  <button onClick={() => setShowSystemModal(true)} className="bg-stone-900 border border-stone-700 hover:border-red-500 hover:text-red-500 text-stone-400 rounded flex items-center justify-center gap-1 lg:gap-2 transition-all active:scale-95 touch-manipulation px-1 shadow-sm">
                     <span className="text-sm lg:text-lg">⚙️</span> <span className="text-[10px] lg:text-xs uppercase font-bold truncate">System</span>
                   </button>
               </div>
@@ -1355,20 +1355,57 @@ export default function App() {
 
       {/* Mobile Portrait Tab Bar */}
       <div 
-        className="sm:hidden col-span-12 h-14 shrink-0 bg-[#0c0a09] border-t border-stone-700 flex items-center justify-around z-50"
+        className="sm:hidden col-span-12 h-14 shrink-0 bg-[#0c0a09]/95 backdrop-blur-md border-t border-stone-800 flex items-center justify-around z-50 px-2 gap-1.5"
         style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
       >
-          <button onClick={() => setActiveTab('hero')} className={`flex flex-col items-center ${activeTab === 'hero' ? 'text-amber-500 scale-110' : 'text-stone-500'}`}>
-              <div className="text-lg">👤</div>
-              <div className="text-[9px] uppercase mt-0.5">Hero</div>
+          <button 
+            onClick={() => setActiveTab('hero')} 
+            className={`flex-1 py-1 flex flex-col items-center justify-center relative rounded-lg transition-all touch-manipulation active:scale-95 ${
+              activeTab === 'hero' 
+                ? 'text-amber-400 bg-stone-900/80 border border-amber-600/40 shadow-[0_0_12px_rgba(217,119,6,0.25)]' 
+                : 'text-stone-500 hover:text-stone-300'
+            }`}
+          >
+              <div className="text-lg leading-none">👤</div>
+              <div className="text-[9px] uppercase font-bold tracking-wider mt-0.5">Hero</div>
+              {statPoints > 0 && (
+                <span className="absolute top-1 right-3 w-2.5 h-2.5 bg-amber-500 rounded-full animate-ping" />
+              )}
+              {statPoints > 0 && (
+                <span className="absolute top-1 right-3 w-2.5 h-2.5 bg-amber-500 rounded-full border border-black" />
+              )}
           </button>
-          <button onClick={() => setActiveTab('adventure')} className={`flex flex-col items-center ${activeTab === 'adventure' ? 'text-amber-500 scale-110' : 'text-stone-500'}`}>
-              <div className="text-lg">⚔️</div>
-              <div className="text-[9px] uppercase mt-0.5">Play</div>
+          <button 
+            onClick={() => setActiveTab('adventure')} 
+            className={`flex-1 py-1 flex flex-col items-center justify-center relative rounded-lg transition-all touch-manipulation active:scale-95 ${
+              activeTab === 'adventure' 
+                ? 'text-amber-400 bg-stone-900/80 border border-amber-600/40 shadow-[0_0_12px_rgba(217,119,6,0.25)]' 
+                : 'text-stone-500 hover:text-stone-300'
+            }`}
+          >
+              <div className="text-lg leading-none">⚔️</div>
+              <div className="text-[9px] uppercase font-bold tracking-wider mt-0.5">Play</div>
+              {skillPoints > 0 && (
+                <span className="absolute top-1 right-3 px-1 bg-amber-500 text-black text-[8px] font-bold rounded-full leading-none shadow">
+                  {skillPoints}
+                </span>
+              )}
           </button>
-          <button onClick={() => setActiveTab('merchant')} className={`flex flex-col items-center ${activeTab === 'merchant' ? 'text-amber-500 scale-110' : 'text-stone-500'}`}>
-               <div className="text-lg">⚖️</div>
-               <div className="text-[9px] uppercase mt-0.5">Items</div>
+          <button 
+            onClick={() => setActiveTab('merchant')} 
+            className={`flex-1 py-1 flex flex-col items-center justify-center relative rounded-lg transition-all touch-manipulation active:scale-95 ${
+              activeTab === 'merchant' 
+                ? 'text-amber-400 bg-stone-900/80 border border-amber-600/40 shadow-[0_0_12px_rgba(217,119,6,0.25)]' 
+                : 'text-stone-500 hover:text-stone-300'
+            }`}
+          >
+              <div className="text-lg leading-none">⚖️</div>
+              <div className="text-[9px] uppercase font-bold tracking-wider mt-0.5">Items</div>
+              {unIDCount > 0 && (
+                <span className="absolute top-1 right-3 px-1.5 py-0.2 bg-amber-600 text-white text-[8px] font-bold rounded-full leading-none animate-pulse shadow">
+                  {unIDCount}
+                </span>
+              )}
           </button>
       </div>
     </div>

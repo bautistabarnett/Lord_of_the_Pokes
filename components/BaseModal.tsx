@@ -62,7 +62,7 @@ export const BaseModal = {
       </div>
       <button 
         onClick={onClose} 
-        className="w-7 h-7 lg:w-8 lg:h-8 flex items-center justify-center text-stone-500 hover:text-white hover:bg-stone-800 rounded transition-colors"
+        className="w-8 h-8 lg:w-9 lg:h-9 flex items-center justify-center text-stone-400 hover:text-white bg-stone-900/80 hover:bg-stone-800 border border-stone-700/80 rounded-md transition-all active:scale-90 touch-manipulation cursor-pointer shadow-sm text-sm"
         aria-label="Close"
       >
         ✕

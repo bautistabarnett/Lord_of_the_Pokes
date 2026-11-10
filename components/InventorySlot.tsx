@@ -73,7 +73,7 @@ const InventorySlot: React.FC<InventorySlotProps> = ({
     <div 
       className={`
         slot
-        w-9 h-9 lg:w-12 lg:h-12 xl:w-14 xl:h-14 2xl:w-16 2xl:h-16 relative transition-all duration-200 group flex items-center justify-center select-none
+        w-11 h-11 xs:w-12 xs:h-12 sm:w-9 sm:h-9 lg:w-12 lg:h-12 xl:w-14 xl:h-14 2xl:w-16 2xl:h-16 relative transition-all duration-200 group flex items-center justify-center select-none
         ${item 
             ? `bg-stone-900 border ${getSlotStyles(item.rarity)} hover:scale-105 hover:z-10` 
             : `bg-[#050505] border border-stone-800 inner-shadow hover:border-stone-600 ${isActive ? 'border-stone-500 bg-stone-800' : ''}`
@@ -103,7 +103,7 @@ const InventorySlot: React.FC<InventorySlotProps> = ({
         <div className={`w-full h-full p-1 flex items-center justify-center ${RARITY_BG_COLORS[item.rarity]} bg-opacity-20 relative pointer-events-none overflow-hidden rounded-[3px]`}>
            
            {/* Icon */}
-           <GameIcon name={item.icon} imageUrl={item.imageUrl} className={`w-6 h-6 lg:w-8 lg:h-8 xl:w-10 xl:h-10 2xl:w-12 2xl:h-12 ${getRarityTextColor(item.rarity)} drop-shadow-lg z-10`} />
+           <GameIcon name={item.icon} imageUrl={item.imageUrl} className={`w-7 h-7 xs:w-8 xs:h-8 sm:w-6 sm:h-6 lg:w-8 lg:h-8 xl:w-10 xl:h-10 2xl:w-12 2xl:h-12 ${getRarityTextColor(item.rarity)} drop-shadow-lg z-10`} />
            
            {/* Rarity Shine FX */}
            {(item.rarity === 'Unique') && (
