@@ -523,7 +523,7 @@ const CombatModal: React.FC<CombatModalProps> = ({
                                     <span className="text-lg lg:text-2xl leading-none">{meta.icon}</span>
                                     <span className="text-[10px] lg:text-xs font-bold mt-0.5 tracking-tight">{meta.name}</span>
                                     <span className="text-[8px] font-mono text-stone-400 opacity-80 leading-none">
-                                        vs {STANCE_META[meta.beats as CombatStance]?.icon || meta.beats}
+                                        vs {STANCE_META[meta.beatsStance]?.icon} {meta.beats}
                                     </span>
                                 </button>
                             );

@@ -372,9 +372,9 @@ const runCombatSim = (playstyle: 'OPTIMAL' | 'RANDOM' | 'WORST', numFights = 250
             if (monster.isStanceHidden) {
                 chosenStance = [CombatStance.WILL, CombatStance.SPIRIT, CombatStance.RESOLVE][Math.floor(Math.random() * 3)];
             } else if (playstyle === 'OPTIMAL') {
-                chosenStance = STANCE_META[enemyStance].weakTo;
+                chosenStance = STANCE_META[enemyStance].weakToStance;
             } else if (playstyle === 'WORST') {
-                chosenStance = STANCE_META[enemyStance].beats;
+                chosenStance = STANCE_META[enemyStance].beatsStance;
             } else {
                 chosenStance = [CombatStance.WILL, CombatStance.SPIRIT, CombatStance.RESOLVE][Math.floor(Math.random() * 3)];
             }

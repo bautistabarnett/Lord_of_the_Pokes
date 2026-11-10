@@ -130,7 +130,17 @@ export const resolveTriadClash = (attackerStance: CombatStance, defenderStance: 
   return 'LOSE';
 };
 
-export const STANCE_META: Record<CombatStance, { name: string, icon: string, color: string, ringColor: string, beats: string, weakTo: string, desc: string }> = {
+export const STANCE_META: Record<CombatStance, { 
+  name: string; 
+  icon: string; 
+  color: string; 
+  ringColor: string; 
+  beats: string; 
+  weakTo: string; 
+  beatsStance: CombatStance;
+  weakToStance: CombatStance;
+  desc: string;
+}> = {
   [CombatStance.WILL]: {
     name: 'Voluntad',
     icon: '🔴',
@@ -138,6 +148,8 @@ export const STANCE_META: Record<CombatStance, { name: string, icon: string, col
     ringColor: 'ring-red-500',
     beats: 'Espíritu',
     weakTo: 'Temple',
+    beatsStance: CombatStance.SPIRIT,
+    weakToStance: CombatStance.RESOLVE,
     desc: 'Ímpetu y fuerza. Vence a Espíritu pero cede ante Temple.'
   },
   [CombatStance.SPIRIT]: {
@@ -147,6 +159,8 @@ export const STANCE_META: Record<CombatStance, { name: string, icon: string, col
     ringColor: 'ring-purple-500',
     beats: 'Temple',
     weakTo: 'Voluntad',
+    beatsStance: CombatStance.RESOLVE,
+    weakToStance: CombatStance.WILL,
     desc: 'Arcano y mente. Vence a Temple pero cede ante Voluntad.'
   },
   [CombatStance.RESOLVE]: {
@@ -156,6 +170,8 @@ export const STANCE_META: Record<CombatStance, { name: string, icon: string, col
     ringColor: 'ring-emerald-500',
     beats: 'Voluntad',
     weakTo: 'Espíritu',
+    beatsStance: CombatStance.WILL,
+    weakToStance: CombatStance.SPIRIT,
     desc: 'Guardia y resiliencia. Vence a Voluntad pero cede ante Espíritu.'
   }
 };

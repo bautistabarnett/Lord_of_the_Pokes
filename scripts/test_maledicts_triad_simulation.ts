@@ -12,18 +12,19 @@ console.log("===================================================================
 // Definition of New Triad-Synergized Maledicts:
 export const EXPANDED_TRIAD_MALEDICTS: MaledictAffix[] = [
   // 1. Existing Classics (Evaluated)
-  { id: 'vampiric', name: 'Vampiric', description: 'Heals 50% of damage dealt.', icon: '🩸', statModifiers: { [StatType.LIFE_STEAL]: 50 } },
-  { id: 'thorns', name: 'Iron Maiden', description: 'Reflects 30% of damage received.', icon: '🌵', statModifiers: { [StatType.THORNS]: 30 } },
-  { id: 'molten', name: 'Molten', description: 'Hitting this enemy applies Burn.', icon: '🔥', statModifiers: {}, trigger: 'onTakeDamage', triggerEffect: { type: 'debuff_player', chance: 0.5, value: 0.05 } },
-  { id: 'arcane', name: 'Arcane Shield', description: 'Nullifies first hit.', icon: '✨', statModifiers: { [StatType.INTELLIGENCE]: 30, [StatType.ARMOR]: 50 }, trigger: 'onStartTurn' },
-  { id: 'executioner', name: 'Executioner', description: 'Double damage if hero < 30% HP.', icon: '🪓', statModifiers: { [StatType.CRIT_CHANCE]: 20 } },
-  { id: 'plague', name: 'Plaguebearer', description: 'Radiates Poison cloud.', icon: '🤢', statModifiers: { [StatType.VITALITY]: 40 }, trigger: 'onStartTurn', triggerEffect: { type: 'ground_hazard', chance: 1.0, value: 0.03 } },
+  { id: 'vampiric', name: 'Vampiric', category: 'TRAIT', description: 'Heals 50% of damage dealt.', icon: '🩸', statModifiers: { [StatType.LIFE_STEAL]: 50 } },
+  { id: 'thorns', name: 'Iron Maiden', category: 'TRAIT', description: 'Reflects 30% of damage received.', icon: '🌵', statModifiers: { [StatType.THORNS]: 30 } },
+  { id: 'molten', name: 'Molten', category: 'TRAIT', description: 'Hitting this enemy applies Burn.', icon: '🔥', statModifiers: {}, trigger: 'onTakeDamage', triggerEffect: { type: 'debuff_player', chance: 0.5, value: 0.05 } },
+  { id: 'arcane', name: 'Arcane Shield', category: 'INFAMY', description: 'Nullifies first hit.', icon: '✨', statModifiers: { [StatType.INTELLIGENCE]: 30, [StatType.ARMOR]: 50 }, trigger: 'onStartTurn' },
+  { id: 'executioner', name: 'Executioner', category: 'TRAIT', description: 'Double damage if hero < 30% HP.', icon: '🪓', statModifiers: { [StatType.CRIT_CHANCE]: 20 } },
+  { id: 'plague', name: 'Plaguebearer', category: 'TRAIT', description: 'Radiates Poison cloud.', icon: '🤢', statModifiers: { [StatType.VITALITY]: 40 }, trigger: 'onStartTurn', triggerEffect: { type: 'ground_hazard', chance: 1.0, value: 0.03 } },
 
   // 2. NEW TRIAD-TUNED MALEDICTS (Addressing Punto 1, 2, 3)
   // Punto 1: Simetría ofensiva / Contragolpe implacable
   {
     id: 'predator',
     name: 'Predator (Depredador)',
+    category: 'INFAMY',
     description: 'When enemy stance beats hero, deals +50% damage and punctures armor.',
     icon: '🐅',
     statModifiers: { [StatType.DAMAGE]: 15 }
@@ -32,6 +33,7 @@ export const EXPANDED_TRIAD_MALEDICTS: MaledictAffix[] = [
   {
     id: 'bulwark',
     name: 'Rune Bulwark (Baluarte Rúnico)',
+    category: 'INFAMY',
     description: 'Attacking this monster in stance disadvantage reduces hero damage by 75% instead of 40%.',
     icon: '🛡️',
     statModifiers: { [StatType.ARMOR]: 40 }
@@ -40,6 +42,7 @@ export const EXPANDED_TRIAD_MALEDICTS: MaledictAffix[] = [
   {
     id: 'adamantine',
     name: 'Adamantine Shell (Coraza Adamantina)',
+    category: 'INFAMY',
     description: 'Increases armor by 80%. Stance victory (WIN) fractures this shell, stripping 50% armor.',
     icon: '💎',
     statModifiers: { [StatType.ARMOR]: 80, [StatType.VITALITY]: 25 }
@@ -48,6 +51,7 @@ export const EXPANDED_TRIAD_MALEDICTS: MaledictAffix[] = [
   {
     id: 'mirage',
     name: 'Mirage Stance (Espejismo)',
+    category: 'INFAMY',
     description: 'Hides monster stance completely and changes stance after being countered.',
     icon: '🎭',
     statModifiers: { [StatType.DODGE_CHANCE]: 10 }

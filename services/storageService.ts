@@ -33,9 +33,15 @@ export const storageService = {
         return slots;
     },
 
-    saveGame: (slotId: number, data: SaveData) => {
-        const key = `${STORAGE_KEY_PREFIX}${slotId}`;
-        localStorage.setItem(key, JSON.stringify(data));
+    saveGame: (slotId: number, data: SaveData): boolean => {
+        try {
+            const key = `${STORAGE_KEY_PREFIX}${slotId}`;
+            localStorage.setItem(key, JSON.stringify(data));
+            return true;
+        } catch (e) {
+            console.error(`Failed to save slot ${slotId}`, e);
+            return false;
+        }
     },
 
     loadGame: (slotId: number): SaveData | null => {

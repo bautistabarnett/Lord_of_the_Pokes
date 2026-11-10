@@ -1,5 +1,5 @@
 import { 
-  Item, ItemSlot, Rarity, StatType, Monster, MonsterRarity, CombatStance, BaseAttributes, EquipmentMap, PlayerStats 
+  Item, ItemSlot, Rarity, StatType, Monster, MonsterRarity, CombatStance, BaseAttributes, EquipmentMap, PlayerStats, PassiveSkill 
 } from '../types';
 import { BALANCE, resolveTriadClash, STANCE_META, TriadClashResult } from '../services/gameBalance';
 import { generateLoot, generateMonster, calculatePlayerStats } from '../services/gameLogic';
@@ -81,8 +81,9 @@ export function createPlayerForLevel(
 
   for (let i = 0; i < slotsToEquip; i++) {
     const slot = slots[i];
-    const item = generateLoot(itemLevel, 1.0, 20, targetRarity, slot);
+    const item = generateLoot(itemLevel, 1.0, 20, targetRarity);
     if (item) {
+      item.type = slot;
       item.isIdentified = true;
       equipment[slot] = item;
     }

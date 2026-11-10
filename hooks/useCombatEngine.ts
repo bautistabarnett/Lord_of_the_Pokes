@@ -121,9 +121,11 @@ export const useCombatEngine = ({
   // Helper: check and expire infamias that have exceeded durationTurns
   const checkInfamyExpirations = (currentTurn: number) => {
     let hasChanges = false;
-    const nextStates = { ...infamyStatesRef.current };
+    const nextStates: Record<string, InfamyRuntimeState> = { ...infamyStatesRef.current };
 
-    Object.entries(nextStates).forEach(([key, state]) => {
+    Object.keys(nextStates).forEach(key => {
+      const state = nextStates[key];
+      if (!state) return;
       if (state.isActive && state.activeUntilTurn && currentTurn >= state.activeUntilTurn) {
         nextStates[key] = { ...state, isActive: false };
         hasChanges = true;

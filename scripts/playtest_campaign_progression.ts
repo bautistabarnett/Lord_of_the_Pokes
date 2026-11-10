@@ -43,8 +43,9 @@ function simulateFullCampaign(playstyle: Playstyle): CampaignStats {
   };
 
   // Starter item
-  const starterWeapon = generateLoot(1, 1.0, 0, Rarity.COMMON, ItemSlot.MAIN_HAND);
+  const starterWeapon = generateLoot(1, 1.0, 0, Rarity.COMMON);
   if (starterWeapon) {
+    starterWeapon.type = ItemSlot.MAIN_HAND;
     starterWeapon.isIdentified = true;
     equipment[ItemSlot.MAIN_HAND] = starterWeapon;
   }
