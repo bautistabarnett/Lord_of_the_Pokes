@@ -424,18 +424,19 @@ export const calculatePlayerStats = (
 
   activeSkills.forEach(passive => {
     if (!passive.statType) return;
+    const val = typeof passive.value === 'number' ? passive.value : (passive.baseValue || 0);
     switch (passive.statType) {
-      case StatType.STRENGTH: currentStats.strength += passive.value; break;
-      case StatType.DEXTERITY: currentStats.dexterity += passive.value; break;
-      case StatType.INTELLIGENCE: currentStats.intelligence += passive.value; break;
-      case StatType.VITALITY: currentStats.vitality += passive.value; break;
-      case StatType.ARMOR: currentStats.armor += passive.value; break;
-      case StatType.MAGIC_FIND: currentStats.magicFind += passive.value; break;
-      case StatType.LIFE_STEAL: currentStats.lifeSteal += passive.value; break;
-      case StatType.CRIT_CHANCE: currentStats.critChance += passive.value; break;
-      case StatType.DODGE_CHANCE: currentStats.dodgeChance += passive.value; break;
-      case StatType.ATTACK_SPEED: currentStats.attackSpeed = (currentStats.attackSpeed || 0) + passive.value; break;
-      case StatType.THORNS: currentStats.thorns = (currentStats.thorns || 0) + passive.value; break;
+      case StatType.STRENGTH: currentStats.strength += val; break;
+      case StatType.DEXTERITY: currentStats.dexterity += val; break;
+      case StatType.INTELLIGENCE: currentStats.intelligence += val; break;
+      case StatType.VITALITY: currentStats.vitality += val; break;
+      case StatType.ARMOR: currentStats.armor += val; break;
+      case StatType.MAGIC_FIND: currentStats.magicFind += val; break;
+      case StatType.LIFE_STEAL: currentStats.lifeSteal += val; break;
+      case StatType.CRIT_CHANCE: currentStats.critChance += val; break;
+      case StatType.DODGE_CHANCE: currentStats.dodgeChance += val; break;
+      case StatType.ATTACK_SPEED: currentStats.attackSpeed = (currentStats.attackSpeed || 0) + val; break;
+      case StatType.THORNS: currentStats.thorns = (currentStats.thorns || 0) + val; break;
     }
   });
 
