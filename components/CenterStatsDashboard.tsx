@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { PlayerStats, BaseAttributes, PassiveSkill } from '../types';
-import { PASSIVE_THEME_COLORS } from '../constants';
+import { PASSIVE_THEME_COLORS, PASSIVE_SET_BONUSES, COMPOSITE_SYNERGIES } from '../constants';
 import { getTitleById } from '../services/spriteCatalog';
 
 interface CenterStatsDashboardProps {
@@ -261,6 +261,70 @@ export const CenterStatsDashboard: React.FC<CenterStatsDashboardProps> = ({
               </div>
             </div>
           )}
+
+          {/* Active Set Bonuses & Synergies Section */}
+          <div className="bg-stone-950/60 border border-stone-800 rounded-lg p-2.5 lg:p-3 shadow-md">
+            <div className="flex items-center justify-between border-b border-stone-800 pb-1 mb-2">
+              <h3 className="text-xs lg:text-sm diablo-font text-stone-400 uppercase tracking-wider flex items-center gap-1.5">
+                <span>✨</span>
+                <span>Sets & Sinergias</span>
+              </h3>
+              <span className="text-[9px] font-mono text-stone-500">
+                {(stats.activeSetBonuses?.length || 0) + (stats.activeSynergies?.length || 0)} Activas
+              </span>
+            </div>
+
+            {((stats.activeSetBonuses && stats.activeSetBonuses.length > 0) || (stats.activeSynergies && stats.activeSynergies.length > 0)) ? (
+              <div className="flex flex-col gap-1.5">
+                {/* Active Set Bonuses */}
+                {stats.activeSetBonuses?.map(theme => {
+                  const bonus = PASSIVE_SET_BONUSES.find(b => b.theme === theme);
+                  const themeStyle = PASSIVE_THEME_COLORS[theme];
+                  return (
+                    <div 
+                      key={theme} 
+                      className={`p-1.5 rounded border text-[10px] flex items-center justify-between ${themeStyle?.border || 'border-amber-700/60'} ${themeStyle?.bg || 'bg-amber-950/30'}`}
+                      title={bonus?.description}
+                    >
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-xs">{themeStyle?.icon || '👑'}</span>
+                        <span className="font-bold text-amber-300">{bonus?.name || theme}</span>
+                        <span className="text-[8px] font-mono bg-black/60 px-1 py-0.2 rounded text-stone-400 uppercase">Set</span>
+                      </div>
+                      <span className="text-[9px] text-stone-400 font-mono truncate max-w-[130px] text-right">
+                        {bonus?.description || 'Activo'}
+                      </span>
+                    </div>
+                  );
+                })}
+
+                {/* Active Synergies */}
+                {stats.activeSynergies?.map(synId => {
+                  const synergy = COMPOSITE_SYNERGIES.find(s => s.id === synId);
+                  return (
+                    <div 
+                      key={synId} 
+                      className="p-1.5 rounded border border-purple-600/70 bg-purple-950/40 text-[10px] flex items-center justify-between shadow-[0_0_8px_rgba(168,85,247,0.15)]"
+                      title={synergy?.description}
+                    >
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-xs">💥</span>
+                        <span className="font-bold text-purple-300">{synergy?.name || synId}</span>
+                        <span className="text-[8px] font-mono bg-purple-900/60 px-1 py-0.2 rounded text-purple-200 uppercase">Sinergia</span>
+                      </div>
+                      <span className="text-[9px] text-purple-300/80 font-mono truncate max-w-[130px] text-right">
+                        {synergy?.description || 'Activo'}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="text-stone-600 text-[10px] italic text-center py-1">
+                Sin sets activos. Equipa 3 habilidades del mismo tema.
+              </div>
+            )}
+          </div>
 
           {/* Active Passive Skills */}
           <div className="bg-stone-950/60 border border-stone-800 rounded-lg p-2.5 lg:p-3 shadow-md flex-1">

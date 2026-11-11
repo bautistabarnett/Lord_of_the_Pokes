@@ -3,6 +3,7 @@ import { BaseModal } from './BaseModal';
 import { PlayerStats, CombatStatusEffect, ActiveEffect, CombatStance } from '../types';
 import { BALANCE, STANCE_META } from '../services/gameBalance';
 import { getTitleById, DEFAULT_HERO_AVATAR } from '../services/spriteCatalog';
+import { PASSIVE_THEME_COLORS, PASSIVE_SET_BONUSES, COMPOSITE_SYNERGIES } from '../constants';
 
 interface HeroCombatStatsModalProps {
   playerStats: PlayerStats;
@@ -225,6 +226,46 @@ export const HeroCombatStatsModal: React.FC<HeroCombatStatsModalProps> = ({
               </span>
               {activeTitle.proc.description}
             </p>
+          </div>
+        )}
+
+        {/* Active Set Bonuses & Synergies */}
+        {((playerStats.activeSetBonuses && playerStats.activeSetBonuses.length > 0) || (playerStats.activeSynergies && playerStats.activeSynergies.length > 0)) && (
+          <div className="bg-stone-900/60 border border-amber-900/40 rounded-lg p-2.5 mb-2.5">
+            <span className="text-[10px] font-mono uppercase text-amber-400 font-bold block mb-1.5 flex items-center gap-1">
+              <span>✨</span> Active Set Bonuses & Synergies
+            </span>
+            <div className="flex flex-wrap gap-1.5">
+              {playerStats.activeSetBonuses?.map(theme => {
+                const bonus = PASSIVE_SET_BONUSES.find(b => b.theme === theme);
+                const themeStyle = PASSIVE_THEME_COLORS[theme];
+                return (
+                  <div
+                    key={theme}
+                    className={`bg-black/60 border ${themeStyle?.border || 'border-amber-700/60'} rounded px-2 py-1 flex items-center gap-1.5 text-xs font-mono`}
+                    title={bonus?.description}
+                  >
+                    <span>{themeStyle?.icon || '👑'}</span>
+                    <span className="text-amber-300 font-bold">{bonus?.name || theme}</span>
+                    <span className="text-[8px] bg-amber-950 px-1 rounded text-amber-200">SET</span>
+                  </div>
+                );
+              })}
+              {playerStats.activeSynergies?.map(synId => {
+                const synergy = COMPOSITE_SYNERGIES.find(s => s.id === synId);
+                return (
+                  <div
+                    key={synId}
+                    className="bg-black/60 border border-purple-600/70 rounded px-2 py-1 flex items-center gap-1.5 text-xs font-mono"
+                    title={synergy?.description}
+                  >
+                    <span>💥</span>
+                    <span className="text-purple-300 font-bold">{synergy?.name || synId}</span>
+                    <span className="text-[8px] bg-purple-950 px-1 rounded text-purple-200">SYNERGY</span>
+                  </div>
+                );
+              })}
+            </div>
           </div>
         )}
 
