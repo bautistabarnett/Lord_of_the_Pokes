@@ -67,6 +67,20 @@ export const EnemyInspectModal: React.FC<EnemyInspectModalProps> = ({
         onClose={onClose}
       />
       <BaseModal.Body className="bg-stone-950 p-2.5 sm:p-3 lg:p-4 max-h-[78dvh] overflow-y-auto custom-scrollbar">
+        {/* Tactical Pause Banner */}
+        <div className="bg-amber-950/60 border border-amber-600/50 rounded-lg px-2.5 py-1.5 mb-2.5 flex items-center justify-between text-[11px] font-mono text-amber-300 shadow-sm">
+          <div className="flex items-center gap-2">
+            <span className="text-base leading-none">⏸️</span>
+            <div>
+              <div className="font-bold uppercase tracking-wider text-amber-200">Combate en Pausa</div>
+              <div className="text-[9px] text-stone-400">Lectura táctica activa. El temporizador y las acciones están detenidas.</div>
+            </div>
+          </div>
+          <span className="text-[9px] bg-amber-900/60 border border-amber-700/60 px-2 py-0.5 rounded text-amber-300 font-bold uppercase shrink-0">
+            Pausa Táctica
+          </span>
+        </div>
+
         {/* Multi-Monster Selector Pills */}
         {monsters.length > 1 && (
           <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-2 mb-2 border-b border-stone-800">

@@ -1136,6 +1136,9 @@ export default function App() {
             onUsePotion={battleActions.usePotion}
             infamyStates={battleState.infamyStates}
             isChronobreakerActive={battleState.isChronobreakerActive}
+            isCombatPaused={battleState.isCombatPaused}
+            onPauseCombat={battleActions.pauseCombat}
+            onResumeCombat={battleActions.resumeCombat}
           />
       )}
 

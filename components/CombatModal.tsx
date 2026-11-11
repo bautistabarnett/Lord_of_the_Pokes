@@ -35,6 +35,9 @@ interface CombatModalProps {
   onUsePotion?: () => void;
   infamyStates?: Record<string, InfamyRuntimeState>;
   isChronobreakerActive?: boolean;
+  isCombatPaused?: boolean;
+  onPauseCombat?: () => void;
+  onResumeCombat?: () => void;
 }
 
 // Fallback if activeMonsters not passed
@@ -293,7 +296,10 @@ const CombatModal: React.FC<CombatModalProps> = ({
   potionsRemaining = 0,
   onUsePotion,
   infamyStates,
-  isChronobreakerActive = false
+  isChronobreakerActive = false,
+  isCombatPaused = false,
+  onPauseCombat,
+  onResumeCombat
 }) => {
   const monsters = getMonsters(monster, activeMonsters);
   const targetMonster = (selectedTargetId ? monsters.find(m => m.id === selectedTargetId && m.currentHp > 0) : null) 
@@ -428,6 +434,14 @@ const CombatModal: React.FC<CombatModalProps> = ({
                     />
                 )}
 
+                {/* Tactical Pause Banner */}
+                {isCombatPaused && (
+                    <div className="absolute top-2 left-1/2 -translate-x-1/2 z-40 bg-amber-950/95 border border-amber-500/80 text-amber-200 px-3.5 py-1 rounded-full text-[11px] lg:text-xs font-mono font-bold uppercase tracking-wider flex items-center gap-2 shadow-[0_0_20px_rgba(245,158,11,0.5)] animate-pulse backdrop-blur-md">
+                        <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping"></span>
+                        <span>⏸️ Combate en Pausa</span>
+                    </div>
+                )}
+
                 {/* HERO SECTION */}
                 <div className="order-3 sm:order-1 flex flex-row sm:flex-col items-center justify-center gap-2 lg:gap-4 w-full sm:w-56 md:w-64 lg:w-80 z-10 transition-all h-auto px-1">
                     <div className={`shrink-0 w-16 h-16 sm:w-24 sm:h-24 lg:w-44 lg:h-44 xl:w-52 xl:h-52 rounded-full border-2 lg:border-4 shadow-[0_0_20px_rgba(0,0,0,0.5)] relative transition-all duration-300 flex items-center justify-center overflow-hidden bg-black/60 ${isPlayerTurn ? 'border-green-600 shadow-[0_0_25px_rgba(22,163,74,0.3)] scale-[1.03]' : 'border-stone-700 opacity-90'} ${isPlayerHit ? 'animate-hit-shake' : ''}`}>
@@ -445,7 +459,10 @@ const CombatModal: React.FC<CombatModalProps> = ({
                         <div className="flex items-center justify-between gap-1 mb-0.5">
                             <span className="text-[9px] lg:text-[10px] font-bold text-stone-400 font-mono uppercase tracking-wider">HERO</span>
                             <button
-                                onClick={() => setShowHeroStats(true)}
+                                onClick={() => {
+                                    setShowHeroStats(true);
+                                    onPauseCombat?.();
+                                }}
                                 className="px-2 py-0.5 bg-stone-900/90 hover:bg-stone-800 border border-amber-600/70 hover:border-amber-400 text-amber-400 text-[9px] lg:text-[10px] font-mono font-bold rounded shadow flex items-center gap-1 transition-all cursor-pointer active:scale-95 shrink-0"
                                 title="Inspect Hero Live Combat Stats"
                             >
@@ -486,15 +503,15 @@ const CombatModal: React.FC<CombatModalProps> = ({
                      {/* Action Timer Bar during Player's Turn */}
                      {isPlayerTurn && (
                         <div className="w-full max-w-[210px] flex flex-col gap-0.5 items-center px-1">
-                            <div className={`flex justify-between w-full text-[9px] font-mono font-bold px-0.5 ${isChronobreakerActive ? 'text-rose-400 animate-pulse' : 'text-amber-300'}`}>
+                            <div className={`flex justify-between w-full text-[9px] font-mono font-bold px-0.5 ${isCombatPaused ? 'text-amber-300' : isChronobreakerActive ? 'text-rose-400 animate-pulse' : 'text-amber-300'}`}>
                                 <span className="flex items-center gap-1">
-                                    {isChronobreakerActive ? '⏳ ¡CHRONOBREAKER!' : '⏱️ Tu Turno'}
+                                    {isCombatPaused ? '⏸️ PAUSADO' : isChronobreakerActive ? '⏳ ¡CHRONOBREAKER!' : '⏱️ Tu Turno'}
                                 </span>
-                                <span>{isChronobreakerActive ? '¡1.2s RÁPIDO!' : '¡Elige Postura!'}</span>
+                                <span>{isCombatPaused ? '(Leyendo Códice)' : isChronobreakerActive ? '¡1.2s RÁPIDO!' : '¡Elige Postura!'}</span>
                             </div>
-                            <div className={`w-full h-1.5 bg-stone-950 rounded-full overflow-hidden border shadow-inner ${isChronobreakerActive ? 'border-red-500 shadow-[0_0_8px_rgba(244,63,94,0.7)]' : 'border-amber-600/60'}`}>
+                            <div className={`w-full h-1.5 bg-stone-950 rounded-full overflow-hidden border shadow-inner ${isCombatPaused ? 'border-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.5)]' : isChronobreakerActive ? 'border-red-500 shadow-[0_0_8px_rgba(244,63,94,0.7)]' : 'border-amber-600/60'}`}>
                                 <div 
-                                    className={`h-full transition-all duration-75 ${isChronobreakerActive ? 'bg-gradient-to-r from-red-600 via-rose-500 to-amber-400' : 'bg-gradient-to-r from-amber-500 via-yellow-400 to-amber-300'}`}
+                                    className={`h-full transition-all duration-75 ${isCombatPaused ? 'bg-amber-400' : isChronobreakerActive ? 'bg-gradient-to-r from-red-600 via-rose-500 to-amber-400' : 'bg-gradient-to-r from-amber-500 via-yellow-400 to-amber-300'}`}
                                     style={{ width: `${actionTimerProgress}%` }}
                                 />
                             </div>
@@ -559,7 +576,10 @@ const CombatModal: React.FC<CombatModalProps> = ({
                             <div className="flex items-center justify-between px-1 pb-1 border-b border-stone-800/80 mb-0.5 shrink-0">
                                 <span className="text-[9px] lg:text-[10px] text-stone-500 font-bold uppercase tracking-wider">Target Focus</span>
                                 <button
-                                    onClick={() => setShowEnemyInspect(true)}
+                                    onClick={() => {
+                                        setShowEnemyInspect(true);
+                                        onPauseCombat?.();
+                                    }}
                                     className="px-2 py-0.5 bg-stone-900/90 hover:bg-stone-800 border border-red-600/70 hover:border-red-400 text-red-300 text-[9px] lg:text-[10px] font-mono font-bold rounded shadow flex items-center gap-1 transition-all cursor-pointer active:scale-95 shrink-0"
                                     title="Inspect Enemy Intel & Codex"
                                 >
@@ -643,7 +663,10 @@ const CombatModal: React.FC<CombatModalProps> = ({
                             <div className="flex-grow w-full space-y-1 lg:space-y-2 min-w-0 text-right sm:text-left pt-2 sm:pt-1">
                                 <div className="flex items-center justify-between gap-2 mb-0.5 flex-row-reverse sm:flex-row">
                                     <button
-                                        onClick={() => setShowEnemyInspect(true)}
+                                        onClick={() => {
+                                            setShowEnemyInspect(true);
+                                            onPauseCombat?.();
+                                        }}
                                         className="px-2 py-0.5 bg-stone-900/90 hover:bg-stone-800 border border-red-600/70 hover:border-red-400 text-red-300 text-[9px] lg:text-[10px] font-mono font-bold rounded shadow flex items-center gap-1 transition-all cursor-pointer active:scale-95 shrink-0"
                                         title="Inspect Enemy Intel & Codex"
                                     >
@@ -702,7 +725,10 @@ const CombatModal: React.FC<CombatModalProps> = ({
            combatStatusEffects={combatStatusEffects}
            terrain={terrain}
            onSelectTarget={onSelectTarget}
-           onClose={() => setShowEnemyInspect(false)}
+           onClose={() => {
+             setShowEnemyInspect(false);
+             onResumeCombat?.();
+           }}
          />
        )}
 
@@ -714,7 +740,10 @@ const CombatModal: React.FC<CombatModalProps> = ({
            combatStance={combatStance}
            combatStatusEffects={combatStatusEffects}
            activeEffects={activeEffects}
-           onClose={() => setShowHeroStats(false)}
+           onClose={() => {
+             setShowHeroStats(false);
+             onResumeCombat?.();
+           }}
          />
        )}
     </div>

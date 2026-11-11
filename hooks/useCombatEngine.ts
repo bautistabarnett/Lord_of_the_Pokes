@@ -100,6 +100,20 @@ export const useCombatEngine = ({
   const actionIntervalRef = useRef<any>(null);
   const turnTimeoutRef = useRef<any>(null);
 
+  // Combat Pause Management (e.g. while reading Codex or tactical inspect)
+  const [isCombatPaused, setIsCombatPaused] = useState<boolean>(false);
+  const isCombatPausedRef = useRef<boolean>(false);
+  useEffect(() => {
+    isCombatPausedRef.current = isCombatPaused;
+  }, [isCombatPaused]);
+
+  const pausedAtRef = useRef<number>(0);
+  const actionStartTimeRef = useRef<number>(0);
+  const actionTotalDurationMsRef = useRef<number>(2500);
+  const actionRemainingMsRef = useRef<number>(2500);
+  const enemyTurnStartTimeRef = useRef<number>(0);
+  const enemyRemainingDelayMsRef = useRef<number>(900);
+
   const [combatStatusEffects, setCombatStatusEffects] = useState<CombatStatusEffect[]>([]);
   const [turnCount, setTurnCount] = useState(0);
   const [selectedTargetId, setSelectedTargetId] = useState<string | null>(null);
@@ -220,6 +234,9 @@ export const useCombatEngine = ({
     setSelectedTargetId(monsters.length > 0 ? monsters[0].id : null);
     setPotionsRemaining(2);
     setIsFighting(true);
+    setIsCombatPaused(false);
+    isCombatPausedRef.current = false;
+    pausedAtRef.current = 0;
     setCombatStance(CombatStance.WILL);
     combatStanceRef.current = CombatStance.WILL;
     setActionTimerProgress(0);
@@ -1112,6 +1129,49 @@ export const useCombatEngine = ({
       } 
   };
 
+  // Helper to run action timer countdown for player
+  const runPlayerActionInterval = (durationMsToRun: number, totalDurationMs: number) => {
+    if (actionIntervalRef.current) {
+      clearInterval(actionIntervalRef.current);
+      actionIntervalRef.current = null;
+    }
+    const intervalStart = Date.now();
+    actionIntervalRef.current = setInterval(() => {
+      if (isCombatPausedRef.current) return;
+      const elapsed = Date.now() - intervalStart;
+      const currentRemaining = Math.max(0, durationMsToRun - elapsed);
+      actionRemainingMsRef.current = currentRemaining;
+
+      const remainingPct = Math.max(0, (currentRemaining / totalDurationMs) * 100);
+      setActionTimerProgress(remainingPct);
+
+      if (currentRemaining <= 0) {
+        clearInterval(actionIntervalRef.current);
+        actionIntervalRef.current = null;
+        setActionTimerProgress(0);
+        setIsChronobreakerActive(false);
+        resolveCombatTurn(combatStanceRef.current);
+        setTurnQueue(prev => prev.slice(1));
+      }
+    }, 50);
+  };
+
+  // Helper to schedule enemy turn timeout
+  const runEnemyTurnTimeout = (delayMs: number) => {
+    if (turnTimeoutRef.current) {
+      clearTimeout(turnTimeoutRef.current);
+      turnTimeoutRef.current = null;
+    }
+    enemyTurnStartTimeRef.current = Date.now();
+    enemyRemainingDelayMsRef.current = delayMs;
+
+    turnTimeoutRef.current = setTimeout(() => {
+      if (!isFighting || isCombatPausedRef.current) return;
+      executeEnemyTurn();
+      setTurnQueue(prev => prev.slice(1));
+    }, delayMs);
+  };
+
   // --- COMBAT LOOP WITH ACTION TIMER ---
   useEffect(() => {
     if (!isFighting || activeMonstersRef.current.length === 0 || !playerStats) {
@@ -1159,25 +1219,14 @@ export const useCombatEngine = ({
 
       // Action Timer for Player: 2500ms normal, or compressed 1200ms under Chronobreaker!
       const ACTION_TIME_MS = chronoActive ? 1200 : 2500;
-      const startTime = Date.now();
+      actionTotalDurationMsRef.current = ACTION_TIME_MS;
+      actionRemainingMsRef.current = ACTION_TIME_MS;
+      actionStartTimeRef.current = Date.now();
       setActionTimerProgress(100);
 
-      if (actionIntervalRef.current) clearInterval(actionIntervalRef.current);
-
-      actionIntervalRef.current = setInterval(() => {
-        const elapsed = Date.now() - startTime;
-        const remainingPct = Math.max(0, 100 - (elapsed / ACTION_TIME_MS) * 100);
-        setActionTimerProgress(remainingPct);
-
-        if (elapsed >= ACTION_TIME_MS) {
-          clearInterval(actionIntervalRef.current);
-          actionIntervalRef.current = null;
-          setActionTimerProgress(0);
-          setIsChronobreakerActive(false);
-          resolveCombatTurn(combatStanceRef.current);
-          setTurnQueue(prev => prev.slice(1));
-        }
-      }, 50);
+      if (!isCombatPausedRef.current) {
+        runPlayerActionInterval(ACTION_TIME_MS, ACTION_TIME_MS);
+      }
 
       return () => {
         if (actionIntervalRef.current) {
@@ -1189,13 +1238,10 @@ export const useCombatEngine = ({
       // Enemy Turn: brief pause of 900ms then execute
       setActionTimerProgress(0);
       setIsChronobreakerActive(false);
-      if (turnTimeoutRef.current) clearTimeout(turnTimeoutRef.current);
 
-      turnTimeoutRef.current = setTimeout(() => {
-        if (!isFighting) return;
-        executeEnemyTurn();
-        setTurnQueue(prev => prev.slice(1));
-      }, 900);
+      if (!isCombatPausedRef.current) {
+        runEnemyTurnTimeout(900);
+      }
 
       return () => {
         if (turnTimeoutRef.current) {
@@ -1206,8 +1252,68 @@ export const useCombatEngine = ({
     }
   }, [isFighting, turnQueue]);
 
+  // Pause / Resume API (Pauses battle when Codex or Inspector is open)
+  const pauseCombat = useCallback(() => {
+    if (!isFighting || isCombatPausedRef.current) return;
+    isCombatPausedRef.current = true;
+    setIsCombatPaused(true);
+    pausedAtRef.current = Date.now();
+
+    // Freeze action interval
+    if (actionIntervalRef.current) {
+      clearInterval(actionIntervalRef.current);
+      actionIntervalRef.current = null;
+    }
+
+    // Freeze enemy timeout
+    if (turnTimeoutRef.current) {
+      clearTimeout(turnTimeoutRef.current);
+      turnTimeoutRef.current = null;
+      const elapsed = Date.now() - enemyTurnStartTimeRef.current;
+      enemyRemainingDelayMsRef.current = Math.max(100, enemyRemainingDelayMsRef.current - elapsed);
+    }
+  }, [isFighting]);
+
+  const resumeCombat = useCallback(() => {
+    if (!isFighting || !isCombatPausedRef.current) return;
+    const pauseDuration = Math.max(0, Date.now() - pausedAtRef.current);
+    isCombatPausedRef.current = false;
+    setIsCombatPaused(false);
+
+    // Shift Infamias ready timestamps so time spent paused in Codex doesn't burn cooldowns
+    if (pauseDuration > 0) {
+      const nextStates = { ...infamyStatesRef.current };
+      let hasShifts = false;
+      Object.keys(nextStates).forEach(key => {
+        const state = nextStates[key];
+        if (state && !state.isActive && state.readyAtTimestamp > pausedAtRef.current) {
+          nextStates[key] = {
+            ...state,
+            readyAtTimestamp: state.readyAtTimestamp + pauseDuration
+          };
+          hasShifts = true;
+        }
+      });
+      if (hasShifts) {
+        infamyStatesRef.current = nextStates;
+        setInfamyStates(nextStates);
+      }
+    }
+
+    // Resume the timer for the active turn
+    if (isPlayerTurn) {
+      const remaining = Math.max(100, actionRemainingMsRef.current);
+      runPlayerActionInterval(remaining, actionTotalDurationMsRef.current);
+    } else {
+      const remainingDelay = Math.max(100, enemyRemainingDelayMsRef.current);
+      runEnemyTurnTimeout(remainingDelay);
+    }
+  }, [isFighting, isPlayerTurn]);
+
   // Direct Stance Trigger (Player clicks one of the triad buttons during action timer)
   const executeStanceAction = useCallback((chosenStance: CombatStance) => {
+    if (isCombatPausedRef.current) return;
+
     setCombatStance(chosenStance);
     combatStanceRef.current = chosenStance;
 
@@ -1223,7 +1329,7 @@ export const useCombatEngine = ({
   }, [isPlayerTurn]);
 
   const usePotion = useCallback(() => {
-      if (!isFighting || potionsRemaining <= 0 || !playerStats) return false;
+      if (!isFighting || isCombatPausedRef.current || potionsRemaining <= 0 || !playerStats) return false;
       const healAmount = Math.max(15, Math.floor(playerStats.maxHp * 0.35));
       setPlayerHp(prev => Math.min(playerStats.maxHp, prev + healAmount));
       setPotionsRemaining(prev => prev - 1);
@@ -1246,7 +1352,8 @@ export const useCombatEngine = ({
           actionTimerProgress,
           lastClashResult,
           infamyStates,
-          isChronobreakerActive
+          isChronobreakerActive,
+          isCombatPaused
       },
       battleActions: {
           startBattle,
@@ -1255,7 +1362,9 @@ export const useCombatEngine = ({
           executeStanceAction,
           setSelectedTargetId,
           usePotion,
-          updateMonsterImage
+          updateMonsterImage,
+          pauseCombat,
+          resumeCombat
       }
   };
 };

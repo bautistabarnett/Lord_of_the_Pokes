@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { TUTORIAL_CATEGORIES, TUTORIAL_SECTIONS, TutorialSection } from '../services/tutorialCatalog';
 import { CombatStance } from '../types';
 import { STANCE_META } from '../services/gameBalance';
-import { MALEDICT_TRAITS, MALEDICT_INFAMIES } from '../constants';
+import { MALEDICT_TRAITS, MALEDICT_INFAMIES, GAME_VERSION } from '../constants';
 
 interface GameTutorialProps {
   onBackToStats?: () => void;
@@ -57,7 +57,7 @@ export const GameTutorial: React.FC<GameTutorialProps> = ({ onBackToStats }) => 
                 Manual del Aventurero
               </h2>
               <span className="text-[9px] font-mono uppercase bg-amber-950/80 text-amber-400 border border-amber-800/60 px-1.5 py-0.2 rounded font-bold">
-                v2.1
+                {GAME_VERSION}
               </span>
             </div>
             <p className="text-[10px] lg:text-[11px] font-mono text-stone-400 mt-0.5">

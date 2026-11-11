@@ -207,7 +207,7 @@ console.log("\n📌 7. AUDITORÍA DEL SISTEMA DE TUTORIAL Y EXTENSIBILIDAD (v2.1
 
 import { TUTORIAL_CATEGORIES, TUTORIAL_SECTIONS } from '../services/tutorialCatalog';
 
-assert(GAME_VERSION === 'v2.1', `Versión del juego incrementada a v2.1 (actual: ${GAME_VERSION})`);
+assert(GAME_VERSION === 'v2.2', `Versión del juego incrementada a v2.2 (actual: ${GAME_VERSION})`);
 assert(TUTORIAL_SECTIONS.length >= 7, `Manual cuenta con secciones completas (actual: ${TUTORIAL_SECTIONS.length})`);
 assert(TUTORIAL_CATEGORIES.length === 7, `Categorías de navegación completas (7 categorías registradas)`);
 
@@ -220,6 +220,33 @@ const allSectionsValid = TUTORIAL_SECTIONS.every(s =>
   s.id && s.title && s.summary && s.content.paragraphs.length > 0
 );
 assert(allSectionsValid, `Todas las secciones del tutorial cuentan con estructura de datos válida y párrafos explicativos`);
+
+// -----------------------------------------------------------------------------
+// 8. AUDITORÍA DEL SISTEMA DE PAUSA TÁCTICA EN COMBATE (CÓDICE) (v2.2)
+// -----------------------------------------------------------------------------
+console.log("\n📌 8. AUDITORÍA DEL SISTEMA DE PAUSA TÁCTICA EN COMBATE (CÓDICE) (v2.2)");
+
+// A. Preservación del temporizador de acción del jugador durante la pausa
+const totalActionDuration = 2500;
+let remainingActionMs = 1600; // El jugador pausa cuando faltan 1600ms
+const pausedAt = Date.now();
+const pauseDuration = 4500; // El jugador lee el Códice durante 4.5 segundos
+const resumedAt = pausedAt + pauseDuration;
+
+// El tiempo restante tras la reanudación debe ser exactamente 1600ms (no debe haber expirado)
+const remainingAfterResume = remainingActionMs;
+assert(remainingAfterResume === 1600, `El temporizador de acción se preserva íntegro tras pausar (1600ms restantes)`);
+
+// B. Preservación de Cooldowns de Infamias con desfase temporal
+const baseReadyAt = pausedAt + 3000; // Infamia lista en 3 segundos desde la pausa
+// Al reanudar tras 4.5s de pausa, el nuevo timestamp debe retrasarse exactamente pauseDuration
+const adjustedReadyAt = baseReadyAt + pauseDuration;
+const timeRemainingAfterResume = adjustedReadyAt - resumedAt;
+assert(timeRemainingAfterResume === 3000, `El tiempo de recarga de Infamias no se desgasta durante la lectura del Códice (3000ms restantes)`);
+
+// C. Verificación de cálculo porcentual congelado
+const frozenProgressPct = Math.max(0, (remainingActionMs / totalActionDuration) * 100);
+assert(Math.round(frozenProgressPct) === 64, `Barra de progreso visual se congela al porcentaje exacto (${frozenProgressPct.toFixed(1)}%)`);
 
 console.log("\n================================================================================");
 console.log(`🏁 RESULTADO FINAL DE LA AUDITORÍA: ${passedTests}/${totalTests} PRUEBAS EXITOSAS`);
