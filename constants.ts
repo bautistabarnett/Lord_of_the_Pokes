@@ -2,7 +2,7 @@
 
 import { Rarity, ItemSlot, StatType, PassiveSkill, MapNode, ExplorationEvent, EventType, SmugglingBundle, PassiveTheme, PassiveSetBonus, MonsterRarity, MaledictAffix, SynergyDefinition, TerrainType } from './types';
 
-export const GAME_VERSION = 'v2.3';
+export const GAME_VERSION = 'v2.4';
 
 export const RARITY_COLORS = {
   [Rarity.COMMON]: 'text-stone-300', // White/Grey
@@ -684,42 +684,45 @@ export const PASSIVE_SKILLS_POOL: Omit<PassiveSkill, 'level' | 'value'>[] = [
   { id: 'grave_born', name: 'Graveborn', rarity: Rarity.RARE, description: 'In CRYPTS or RUINS, gain +{value}% Life Steal.', theme: PassiveTheme.SHADOW, statType: StatType.LIFE_STEAL, baseValue: 5, valuePerLevel: 2, tier: 2, maxRank: 5, treeX: 2 },
 ];
 
-// Game Changing Set Bonuses
+// Game Changing Set Bonuses (9 Official Families)
 export const PASSIVE_SET_BONUSES: PassiveSetBonus[] = [
     {
         theme: PassiveTheme.PYROMANCY,
         name: 'Avatar of Flame',
-        description: 'Attacks ignite enemies. Stacks infinite times.',
+        description: 'Attacks ignite enemies with stacking Burn damage. Grants +20 Damage.',
         requiredCount: 3,
         staticStats: [{ type: StatType.DAMAGE, value: 20 }],
         triggerCondition: 'onHit',
         procChance: 0.5,
-        procEffect: { type: 'burn', duration: 3, value: 0.1, isStackable: true } // 10% weapon dmg stack
+        procEffect: { type: 'burn', duration: 3, value: 0.1, isStackable: true }
+    },
+    {
+        theme: PassiveTheme.WARFARE,
+        name: 'Warlord\'s Ascendancy',
+        description: 'Consecutive attacks build physical momentum (+8 Str stack). Grants +20 Damage and +15 Strength.',
+        requiredCount: 3,
+        staticStats: [
+            { type: StatType.DAMAGE, value: 20 },
+            { type: StatType.STRENGTH, value: 15 }
+        ],
+        triggerCondition: 'onHit',
+        procChance: 0.5,
+        procEffect: { type: 'scaling_strength', duration: 3, value: 8, isStackable: true }
     },
     {
         theme: PassiveTheme.CRYOMANCY,
         name: 'Absolute Zero',
-        description: 'Attacks CHILL enemies, reducing their Agility (Turn Speed). Crit on Frozen.',
+        description: 'Attacks CHILL enemies, suppressing their reactions. High Crit on Chilled. Grants +50 Armor.',
         requiredCount: 3,
         staticStats: [{ type: StatType.ARMOR, value: 50 }],
         triggerCondition: 'onHit',
         procChance: 0.4,
-        procEffect: { type: 'chill', duration: 3, value: 0.2, isStackable: true } // Reduces Agility by 20%
-    },
-    {
-        theme: PassiveTheme.SHADOW,
-        name: 'Assassin\'s Creed',
-        description: 'Applying Poison also Blinds. Crits against Poisoned enemies deal +50% dmg.',
-        requiredCount: 3,
-        staticStats: [{ type: StatType.CRIT_CHANCE, value: 10 }],
-        triggerCondition: 'onCrit',
-        procChance: 1.0,
-        procEffect: { type: 'poison', duration: 4, value: 0.15, isStackable: true }
+        procEffect: { type: 'chill', duration: 3, value: 0.2, isStackable: true }
     },
     {
         theme: PassiveTheme.SENTINEL,
         name: 'Iron Fortress',
-        description: 'When hit, 20% chance to Stun attacker and Regen HP.',
+        description: 'When hit, 20% chance to Stun attacker and Regen HP. Grants +20 Vitality.',
         requiredCount: 3,
         staticStats: [{ type: StatType.VITALITY, value: 20 }],
         triggerCondition: 'onTakeDamage',
@@ -727,14 +730,63 @@ export const PASSIVE_SET_BONUSES: PassiveSetBonus[] = [
         procEffect: { type: 'regen', duration: 2, value: 0.05 }
     },
     {
+        theme: PassiveTheme.SHADOW,
+        name: 'Assassin\'s Creed',
+        description: 'Applying Poison also Blinds. Crits against Poisoned deal +50% dmg. Grants +10% Crit Chance.',
+        requiredCount: 3,
+        staticStats: [{ type: StatType.CRIT_CHANCE, value: 10 }],
+        triggerCondition: 'onCrit',
+        procChance: 1.0,
+        procEffect: { type: 'poison', duration: 4, value: 0.15, isStackable: true }
+    },
+    {
+        theme: PassiveTheme.ARCANE,
+        name: 'Arcane Singularity',
+        description: 'Strikes have 35% chance to erect an Arcane Shield (+45 Shield). Grants +25 Intelligence and +25 Armor.',
+        requiredCount: 3,
+        staticStats: [
+            { type: StatType.INTELLIGENCE, value: 25 },
+            { type: StatType.ARMOR, value: 25 }
+        ],
+        triggerCondition: 'onHit',
+        procChance: 0.35,
+        procEffect: { type: 'shield', duration: 2, value: 45, isStackable: false }
+    },
+    {
         theme: PassiveTheme.FORTUNE,
         name: 'Jackpot',
-        description: 'Critical Hits have a chance to grant a massive visual buff and drop Gold.',
+        description: 'Critical Hits grant massive Crit Boost (+100% Crit Dmg next turn). Grants +50 Magic Find.',
         requiredCount: 2,
         staticStats: [{ type: StatType.MAGIC_FIND, value: 50 }],
         triggerCondition: 'onCrit',
         procChance: 0.3,
-        procEffect: { type: 'crit_boost', duration: 1, value: 100 } // +100% Crit Dmg next turn
+        procEffect: { type: 'crit_boost', duration: 1, value: 100 }
+    },
+    {
+        theme: PassiveTheme.NATURE,
+        name: 'Living Thorns',
+        description: 'Taking damage triggers cellular regeneration (+5% Max HP/turn). Grants +35 Thorns and +20 Vitality.',
+        requiredCount: 3,
+        staticStats: [
+            { type: StatType.THORNS, value: 35 },
+            { type: StatType.VITALITY, value: 20 }
+        ],
+        triggerCondition: 'onTakeDamage',
+        procChance: 0.4,
+        procEffect: { type: 'regen', duration: 3, value: 0.05 }
+    },
+    {
+        theme: PassiveTheme.SCOUTING,
+        name: 'Vantage Point',
+        description: 'Critical Hits trigger lethal focus (+50% Crit Boost next attack). Grants +12% Crit and +10% Dodge.',
+        requiredCount: 3,
+        staticStats: [
+            { type: StatType.CRIT_CHANCE, value: 12 },
+            { type: StatType.DODGE_CHANCE, value: 10 }
+        ],
+        triggerCondition: 'onCrit',
+        procChance: 0.5,
+        procEffect: { type: 'crit_boost', duration: 1, value: 50 }
     }
 ];
 
@@ -758,8 +810,29 @@ export const COMPOSITE_SYNERGIES: SynergyDefinition[] = [
         id: 'dark_momentum',
         name: 'Dark Momentum',
         themes: [PassiveTheme.SHADOW, PassiveTheme.FORTUNE],
-        description: 'Crits grant +35% Dodge and an instant extra turn in the combat queue.',
-        effect: { trigger: 'onCrit', type: 'synergy_buff', value: 1.5 } // 50% Agi boost
+        description: 'Crits grant +35% Dodge and accelerated Quick Reaction reflexes.',
+        effect: { trigger: 'onCrit', type: 'synergy_buff', value: 1.5 }
+    },
+    {
+        id: 'spellblade',
+        name: 'Spellblade',
+        themes: [PassiveTheme.WARFARE, PassiveTheme.ARCANE],
+        description: 'Physical strikes channel raw ether, detonating a 150% Spell Power burst on impact.',
+        effect: { trigger: 'onHit', type: 'synergy_burst', value: 1.5 }
+    },
+    {
+        id: 'verdant_bulwark',
+        name: 'Verdant Bulwark',
+        themes: [PassiveTheme.SENTINEL, PassiveTheme.NATURE],
+        description: 'Being hit hardens living bark, restoring health and returning +25% Thorns damage.',
+        effect: { trigger: 'onTakeDamage', type: 'synergy_debuff', value: 0.15 }
+    },
+    {
+        id: 'shadow_stalker',
+        name: 'Shadow Stalker',
+        themes: [PassiveTheme.SHADOW, PassiveTheme.SCOUTING],
+        description: 'Crits expose enemy blind spots, granting guaranteed Crit Boost and +20% Dodge.',
+        effect: { trigger: 'onCrit', type: 'synergy_buff', value: 1.3 }
     }
 ];
 

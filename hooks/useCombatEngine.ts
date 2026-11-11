@@ -381,7 +381,7 @@ export const useCombatEngine = ({
               const bonus = PASSIVE_SET_BONUSES.find(b => b.theme === theme);
               if (bonus && bonus.triggerCondition === trigger && Math.random() < bonus.procChance) {
                   let target: 'player' | 'enemy' = 'enemy';
-                  if (['regen', 'crit_boost', 'reflect'].includes(bonus.procEffect.type)) target = 'player';
+                  if (['regen', 'crit_boost', 'reflect', 'scaling_strength', 'shield', 'dodge_boost'].includes(bonus.procEffect.type)) target = 'player';
                   
                   const effectObj: any = {
                       id: Date.now() + Math.random().toString(),
@@ -552,6 +552,39 @@ export const useCombatEngine = ({
                       });
                       setTurnQueue(prev => ['player', ...prev]);
                       addToCombatLog(`🌑 Dark Momentum: Critical surge! Extra turn gained & +35% Dodge!`);
+                  }
+                  else if (synergy.id === 'spellblade' && trigger === 'onHit' && targetMonster) {
+                      const burst = Math.floor(Math.max(15, (playerStats.spellPower || 15)) * synergy.effect.value);
+                      triggerDamage += burst;
+                      addToCombatLog(`⚔️🔮 SPELLBLADE! Ether detonation deals ${burst} magic damage!`);
+                  }
+                  else if (synergy.id === 'verdant_bulwark' && trigger === 'onTakeDamage') {
+                      newEffects.push({
+                          id: `verdant-bark-${Date.now()}`,
+                          type: 'shield',
+                          name: 'Living Bark',
+                          duration: 2,
+                          value: Math.floor(playerStats.maxHp * 0.1),
+                          stacks: 1,
+                          source: 'synergy',
+                          target: 'player',
+                          description: 'Living Bark absorbs incoming damage'
+                      });
+                      addToCombatLog(`🛡️🌿 VERDANT BULWARK: Living bark erects a shield!`);
+                  }
+                  else if (synergy.id === 'shadow_stalker' && trigger === 'onCrit') {
+                      newEffects.push({
+                          id: `shadow-stalker-${Date.now()}`,
+                          type: 'dodge_boost',
+                          name: 'Shadow Stalker',
+                          duration: 2,
+                          value: 20,
+                          stacks: 1,
+                          source: 'synergy',
+                          target: 'player',
+                          description: '+20% Dodge on Critical strike'
+                      });
+                      addToCombatLog(`🏹👥 SHADOW STALKER: Strike from the shadows! +20% Dodge!`);
                   }
               }
           });

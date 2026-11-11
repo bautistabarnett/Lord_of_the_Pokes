@@ -153,7 +153,7 @@ export interface PassiveSetBonus {
     triggerCondition: CombatTrigger;
     procChance: number; // 0-1 (e.g., 0.2 for 20%)
     procEffect: {
-        type: 'burn' | 'freeze' | 'poison' | 'blind' | 'regen' | 'crit_boost' | 'chill' | 'explode' | 'stun' | 'shield';
+        type: 'burn' | 'freeze' | 'poison' | 'blind' | 'regen' | 'crit_boost' | 'chill' | 'explode' | 'stun' | 'shield' | 'scaling_strength' | 'dodge_boost';
         duration: number; // Turns
         value: number; // Damage amount or percent or stack count
         isStackable?: boolean;
