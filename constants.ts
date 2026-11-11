@@ -2,7 +2,7 @@
 
 import { Rarity, ItemSlot, StatType, PassiveSkill, MapNode, ExplorationEvent, EventType, SmugglingBundle, PassiveTheme, PassiveSetBonus, MonsterRarity, MaledictAffix, SynergyDefinition, TerrainType } from './types';
 
-export const GAME_VERSION = 'v2.0';
+export const GAME_VERSION = 'v2.1';
 
 export const RARITY_COLORS = {
   [Rarity.COMMON]: 'text-stone-300', // White/Grey
@@ -146,6 +146,9 @@ export const MALEDICT_AFFIXES: MaledictAffix[] = [
         triggerEffect: { type: 'hide_stance', chance: 1.0, value: 1 }
     }
 ];
+
+export const MALEDICT_TRAITS = MALEDICT_AFFIXES.filter(m => m.category === 'TRAIT');
+export const MALEDICT_INFAMIES = MALEDICT_AFFIXES.filter(m => m.category === 'INFAMY');
 
 export const PASSIVE_THEME_COLORS: Record<PassiveTheme, { text: string, bg: string, border: string, icon: string }> = {
   [PassiveTheme.PYROMANCY]: { text: 'text-orange-500', bg: 'bg-orange-950/50', border: 'border-orange-700', icon: '🔥' },

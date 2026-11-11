@@ -192,13 +192,34 @@ assert(lowMitigation > 0 && lowMitigation < 0.30, `Mitigación básica razonable
 assert(highMitigation <= 0.80, `Mitigación de armadura masiva respeta tope del 80% (${(highMitigation*100).toFixed(1)}%)`);
 
 // -----------------------------------------------------------------------------
-// 6. AUDITORÍA DE RESPETO DE PUNTOS Y REAJUSTE DE HABILIDADES
+// 6. AUDITORÍA DE RESPEC DE ATRIBUTOS Y COSTO EN ORO
 // -----------------------------------------------------------------------------
 console.log("\n📌 6. AUDITORÍA DE RESPEC DE ATRIBUTOS Y COSTO EN ORO");
 
 const respecLevel = 20;
 const respecCost = Math.max(50, respecLevel * 50);
 assert(respecCost === 1000, `Costo de Respec a nivel 20 escala coherentemente (1000g, calculado: ${respecCost}g)`);
+
+// -----------------------------------------------------------------------------
+// 7. AUDITORÍA DEL SISTEMA DE TUTORIAL Y EXTENSIBILIDAD
+// -----------------------------------------------------------------------------
+console.log("\n📌 7. AUDITORÍA DEL SISTEMA DE TUTORIAL Y EXTENSIBILIDAD (v2.1)");
+
+import { TUTORIAL_CATEGORIES, TUTORIAL_SECTIONS } from '../services/tutorialCatalog';
+
+assert(GAME_VERSION === 'v2.1', `Versión del juego incrementada a v2.1 (actual: ${GAME_VERSION})`);
+assert(TUTORIAL_SECTIONS.length >= 7, `Manual cuenta con secciones completas (actual: ${TUTORIAL_SECTIONS.length})`);
+assert(TUTORIAL_CATEGORIES.length === 7, `Categorías de navegación completas (7 categorías registradas)`);
+
+const requiredCats = ['triad', 'reaction', 'maledicts', 'attributes', 'exploration', 'items'];
+const coveredCats = new Set(TUTORIAL_SECTIONS.map(s => s.category));
+const allCatsCovered = requiredCats.every(c => coveredCats.has(c as any));
+assert(allCatsCovered, `Todas las categorías principales de mecánicas están cubiertas en el tutorial`);
+
+const allSectionsValid = TUTORIAL_SECTIONS.every(s => 
+  s.id && s.title && s.summary && s.content.paragraphs.length > 0
+);
+assert(allSectionsValid, `Todas las secciones del tutorial cuentan con estructura de datos válida y párrafos explicativos`);
 
 console.log("\n================================================================================");
 console.log(`🏁 RESULTADO FINAL DE LA AUDITORÍA: ${passedTests}/${totalTests} PRUEBAS EXITOSAS`);
@@ -210,3 +231,4 @@ if (passedTests === totalTests) {
   console.error("⚠️ Se detectaron inconsistencias que requieren atención.");
   process.exit(1);
 }
+

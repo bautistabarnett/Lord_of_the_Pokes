@@ -23,6 +23,7 @@ import { HERO_AVATARS, DEFAULT_HERO_AVATAR, DEFAULT_TITLE_ID, getTitleById } fro
 import { MasteryTitlesModal } from './components/MasteryTitlesModal';
 import { hydrateLegacyItem } from './services/itemCatalog';
 import CenterStatsDashboard from './components/CenterStatsDashboard';
+import GameTutorial from './components/GameTutorial';
 
 type MobileTab = 'hero' | 'adventure' | 'merchant';
 type GameStatus = 'MENU' | 'PLAYING';
@@ -77,7 +78,7 @@ export default function App() {
   const [heroImageUrl, setHeroImageUrl] = useState<string | undefined>(DEFAULT_HERO_AVATAR);
   const [showHeroClassModal, setShowHeroClassModal] = useState(false);
   const [activeTab, setActiveTab] = useState<MobileTab>('adventure');
-  const [centerTab, setCenterTab] = useState<'stats' | 'log'>('stats');
+  const [centerTab, setCenterTab] = useState<'stats' | 'tutorial'>('stats');
 
   // Mastery Titles (per save slot)
   const [bossTrophies, setBossTrophies] = useState<number>(0);
@@ -1262,18 +1263,18 @@ export default function App() {
               )}
             </button>
             <button
-              onClick={() => setCenterTab('log')}
+              onClick={() => setCenterTab('tutorial')}
               className={`flex-1 py-1 px-2.5 text-[11px] lg:text-xs font-bold uppercase tracking-wider rounded transition-all flex items-center justify-center gap-1.5 touch-manipulation ${
-                centerTab === 'log'
+                centerTab === 'tutorial'
                   ? 'bg-amber-950/40 text-amber-400 border border-amber-600/50 shadow-sm'
                   : 'text-stone-400 hover:text-stone-200 hover:bg-stone-900/50 border border-transparent'
               }`}
             >
-              <span>📜</span>
-              <span>Bitácora</span>
-              {logs.length > 0 && (
-                <span className="text-[10px] font-mono opacity-60">({logs.length})</span>
-              )}
+              <span>📖</span>
+              <span>Tutorial</span>
+              <span className="text-[9px] font-mono text-amber-500/80 bg-amber-950/60 border border-amber-800/40 px-1 rounded ml-0.5">
+                Guía
+              </span>
             </button>
           </div>
 
@@ -1292,7 +1293,7 @@ export default function App() {
                 </div>
               )}
 
-              {/* Dynamic Center View: Stats Dashboard OR Full Adventure Log */}
+              {/* Dynamic Center View: Stats Dashboard OR Interactive Game Tutorial */}
               {centerTab === 'stats' ? (
                 <CenterStatsDashboard
                   stats={stats}
@@ -1301,18 +1302,10 @@ export default function App() {
                   passiveSkills={passiveSkills}
                   onAllocate={handleAllocatePoint}
                   latestLogMessage={logs[0]?.message}
-                  onViewFullLog={() => setCenterTab('log')}
+                  onOpenTutorial={() => setCenterTab('tutorial')}
                 />
               ) : (
-                <div className="flex-1 min-h-0 border border-stone-800 bg-black/20 rounded p-2.5 lg:p-4 overflow-y-auto custom-scrollbar font-mono text-[11px] lg:text-sm 2xl:text-base space-y-1 shadow-inner">
-                    {logs.map((log) => (
-                        <div key={log.id} className={`${log.type === 'combat' ? 'text-red-400' : log.type === 'loot' ? 'text-amber-400' : log.type === 'event' ? 'text-blue-300' : 'text-stone-500'} border-b border-white/5 pb-1 mb-1`}>
-                            <span className="opacity-50 mr-2">[{new Date(log.timestamp).toLocaleTimeString().slice(0,5)}]</span>
-                            {log.message}
-                        </div>
-                    ))}
-                    {logs.length === 0 && <div className="text-stone-600 italic text-center mt-4 lg:mt-10">The journey begins...</div>}
-                </div>
+                <GameTutorial onBackToStats={() => setCenterTab('stats')} />
               )}
 
               {/* Bottom Controls */}

@@ -10,7 +10,7 @@ interface CenterStatsDashboardProps {
   passiveSkills: PassiveSkill[];
   onAllocate: (attr: keyof BaseAttributes) => void;
   latestLogMessage?: string;
-  onViewFullLog?: () => void;
+  onOpenTutorial?: () => void;
 }
 
 export const CenterStatsDashboard: React.FC<CenterStatsDashboardProps> = ({
@@ -20,7 +20,7 @@ export const CenterStatsDashboard: React.FC<CenterStatsDashboardProps> = ({
   passiveSkills,
   onAllocate,
   latestLogMessage,
-  onViewFullLog,
+  onOpenTutorial,
 }) => {
   const attributes = useMemo(
     () => [
@@ -302,12 +302,14 @@ export const CenterStatsDashboard: React.FC<CenterStatsDashboardProps> = ({
               {latestLogMessage}
             </span>
           </div>
-          {onViewFullLog && (
+          {onOpenTutorial && (
             <button
-              onClick={onViewFullLog}
-              className="px-2 py-0.5 bg-stone-900 hover:bg-stone-800 border border-stone-700 text-stone-300 text-[9px] font-bold uppercase rounded shrink-0 transition-all active:scale-95 touch-manipulation cursor-pointer"
+              onClick={onOpenTutorial}
+              className="px-2 py-0.5 bg-stone-900 hover:bg-stone-800 border border-stone-700 hover:border-amber-500/60 text-amber-400 hover:text-amber-300 text-[9px] font-bold uppercase rounded shrink-0 transition-all active:scale-95 touch-manipulation cursor-pointer flex items-center gap-1 shadow-sm"
+              title="Abrir Manual del Aventurero y Tutorial de Mecánicas"
             >
-              Bitácora ➔
+              <span>📖</span>
+              <span>Tutorial ➔</span>
             </button>
           )}
         </div>
