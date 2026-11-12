@@ -808,8 +808,33 @@ export const useCombatEngine = ({
     }
 
     if (clash === 'WIN') {
-      rawDmg *= BALANCE.COMBAT.triadConfig.winDamageMult;
-      addToCombatLog(`⚔️ ¡TRIUNFO! Tu ${STANCE_META[activeStance].name} quiebra el ${STANCE_META[enemyStance].name} de ${targetMonster.name} (+35% daño)!`);
+      const clashWinBonus = (playerStats.clashWinDamageBonus || 0) / 100;
+      const totalWinMult = BALANCE.COMBAT.triadConfig.winDamageMult + clashWinBonus;
+      rawDmg *= totalWinMult;
+      const bonusPct = Math.round((totalWinMult - 1) * 100);
+      addToCombatLog(`⚔️ ¡TRIUNFO! Tu ${STANCE_META[activeStance].name} quiebra el ${STANCE_META[enemyStance].name} de ${targetMonster.name} (+${bonusPct}% daño)!`);
+      
+      // Arcane Singularity Clash Win bonus:
+      if (activeStance === CombatStance.SPIRIT && playerStats.activeSetBonuses.includes(PassiveTheme.ARCANE)) {
+        setCombatStatusEffects(prev => applyStatusEffects(prev, [{
+          id: `arcane_shield_${Date.now()}`,
+          name: 'Arcane Shield',
+          type: 'shield',
+          duration: 2,
+          value: 45,
+          stacks: 1,
+          source: 'set_bonus',
+          target: 'player'
+        }]));
+        addToCombatLog(`🔮 ¡RESONANCIA DE ÉTER! Triunfo en Espíritu canaliza un escudo arcano (+45 absorción).`);
+      }
+      
+      // Spellblade Synergy Clash Win detonation:
+      if (playerStats.activeSynergies.includes('spellblade')) {
+        const spellbladeDmg = Math.max(5, Math.round(playerStats.intelligence * 1.5));
+        monsterHp -= spellbladeDmg;
+        addToCombatLog(`✨ ¡FILO DEL CONJURO! Tu triunfo marcial detona una ráfaga de éter (${spellbladeDmg} daño mágico).`);
+      }
     } else if (clash === 'LOSE') {
       // If Rune Bulwark is active, it severely punishes losing the clash: 25% damage instead of 60%
       if (isBulwarkActive) {
@@ -821,10 +846,15 @@ export const useCombatEngine = ({
           .filter(e => e.target === 'player' && e.type === 'chill')
           .reduce((acc, curr) => acc + curr.stacks, 0);
         const effectiveReaction = Math.max(0, (playerStats.attackSpeed || 0) * Math.pow(0.8, chillStacks));
-        const feintChance = Math.min(35, effectiveReaction * 0.6);
+        const feintBonus = playerStats.feintChanceBonus || 0;
+        const feintChance = Math.min(65, Math.round(effectiveReaction * 0.6) + feintBonus);
 
         if (feintChance > 0 && Math.random() * 100 < feintChance) {
-          addToCombatLog(`🤺 ¡FINTA RÁPIDA! Pese a fallar la postura (${STANCE_META[activeStance].name} vs ${STANCE_META[enemyStance].name}), tu Reacción Rápida corrige el golpe (100% daño)!`);
+          addToCombatLog(`🤺 ¡FINTA RÁPIDA! Pese a fallar la postura (${STANCE_META[activeStance].name} vs ${STANCE_META[enemyStance].name}), tu Reacción Rápida (${feintChance}%) corrige el golpe (100% daño)!`);
+          if (playerStats.activeSynergies.includes('shadow_stalker')) {
+            rawDmg *= BALANCE.COMBAT.critMultiplier;
+            addToCombatLog(`👁️ ¡EMBOSCADA DE SOMBRAS! La Finta expone el punto ciego de ${targetMonster.name} (¡Golpe Crítico garantizado!).`);
+          }
         } else {
           rawDmg *= BALANCE.COMBAT.triadConfig.loseDamageMult;
           addToCombatLog(`⚠️ ¡DESVENTAJA! El ${STANCE_META[enemyStance].name} de ${targetMonster.name} resiste tu ${STANCE_META[activeStance].name} (daño al 60%).`);
@@ -1047,9 +1077,17 @@ export const useCombatEngine = ({
               finalMitigationPercent = Math.max(0, baseMitigationPercent - BALANCE.COMBAT.triadConfig.loseDefensePenaltyBonus);
               addToCombatLog(`💥 ¡VULNERABLE! El ataque de ${STANCE_META[enemyStance].name} de ${monster.name} penetra tu ${STANCE_META[combatStanceRef.current].name}!`);
           } else if (enemyClash === 'LOSE') {
-              // Player stance counters enemy attack
-              finalMitigationPercent = Math.min(0.85, baseMitigationPercent + BALANCE.COMBAT.triadConfig.winDefenseMitigationBonus);
-              addToCombatLog(`🛡️ ¡DESVÍO! Tu ${STANCE_META[combatStanceRef.current].name} amortigua el ataque de ${STANCE_META[enemyStance].name} de ${monster.name}!`);
+              // Player stance counters enemy attack!
+              const defendBonus = (playerStats.clashDefendMitigationBonus || 0) / 100;
+              finalMitigationPercent = Math.min(0.90, baseMitigationPercent + BALANCE.COMBAT.triadConfig.winDefenseMitigationBonus + defendBonus);
+              const totalDefMitPct = Math.round((BALANCE.COMBAT.triadConfig.winDefenseMitigationBonus + defendBonus) * 100);
+              addToCombatLog(`🛡️ ¡DESVÍO! Tu ${STANCE_META[combatStanceRef.current].name} amortigua el ataque de ${STANCE_META[enemyStance].name} de ${monster.name} (+${totalDefMitPct}% mitigación)!`);
+
+              if (combatStanceRef.current === CombatStance.RESOLVE && playerStats.activeSynergies.includes('verdant_bulwark')) {
+                const thornsDmg = Math.max(5, Math.round((playerStats.thorns || 0) * 0.5));
+                workingMonsters[mIdx] = { ...workingMonsters[mIdx], currentHp: Math.max(0, workingMonsters[mIdx].currentHp - thornsDmg) };
+                addToCombatLog(`🌿 ¡ESPINAS VIVIENTES! Tu desvío en Temple clava astillas vivientes a ${monster.name} (${thornsDmg} daño reflejado).`);
+              }
           }
 
           let final = Math.max(1, Math.floor(dmg * (1 - finalMitigationPercent)));
@@ -1059,11 +1097,12 @@ export const useCombatEngine = ({
             .filter(e => e.target === 'player' && e.type === 'chill')
             .reduce((acc, curr) => acc + curr.stacks, 0);
           const effectiveReaction = Math.max(0, (playerStats.attackSpeed || 0) * Math.pow(0.8, chillStacks));
-          const parryChance = Math.min(50, effectiveReaction * 1.0);
+          const parryBonus = playerStats.parryChanceBonus || 0;
+          const parryChance = Math.min(75, Math.round(effectiveReaction * 1.0) + parryBonus);
 
           if (parryChance > 0 && Math.random() * 100 < parryChance) {
               final = Math.max(1, Math.floor(final * 0.65));
-              addToCombatLog(`🗡️ ¡PARRY! Tu Reacción Rápida desvía el impacto de ${monster.name} (-35% daño)!`);
+              addToCombatLog(`🗡️ ¡PARRY! Tu Reacción Rápida (${parryChance}% prob) desvía el impacto de ${monster.name} (-35% daño)!`);
           }
 
           // Dynamically rotate monster stance for upcoming turn:
@@ -1250,8 +1289,10 @@ export const useCombatEngine = ({
         setIsChronobreakerActive(false);
       }
 
-      // Action Timer for Player: 2500ms normal, or compressed 1200ms under Chronobreaker!
-      const ACTION_TIME_MS = chronoActive ? 1200 : 2500;
+      // Action Timer for Player: 2500ms normal (+ actionTimerBonusMs), or compressed 1200ms under Chronobreaker!
+      const timerBonus = playerStats.actionTimerBonusMs || 0;
+      const baseActionTime = chronoActive ? 1200 : 2500;
+      const ACTION_TIME_MS = Math.min(4500, baseActionTime + timerBonus);
       actionTotalDurationMsRef.current = ACTION_TIME_MS;
       actionRemainingMsRef.current = ACTION_TIME_MS;
       actionStartTimeRef.current = Date.now();

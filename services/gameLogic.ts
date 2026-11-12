@@ -456,6 +456,11 @@ export const calculatePlayerStats = (
     thorns: 0,
     spellPower: 0,
     healthRegen: 1,
+    clashWinDamageBonus: 0,
+    clashDefendMitigationBonus: 0,
+    feintChanceBonus: 0,
+    parryChanceBonus: 0,
+    actionTimerBonusMs: 0,
     level: level,
     xp: 0, xpToNextLevel: 0, gold: 0, maxHp: 100,
     statPoints: availableStatPoints,
@@ -530,6 +535,74 @@ export const calculatePlayerStats = (
           currentStats.activeSynergies.push(synergy.id);
       }
   });
+
+  // --- Martial Triad Affinities (Phase 4 Integration) ---
+  const warfareCount = skillsByTheme[PassiveTheme.WARFARE]?.size || 0;
+  const sentinelCount = skillsByTheme[PassiveTheme.SENTINEL]?.size || 0;
+  const shadowCount = skillsByTheme[PassiveTheme.SHADOW]?.size || 0;
+  const arcaneCount = skillsByTheme[PassiveTheme.ARCANE]?.size || 0;
+  const scoutingCount = skillsByTheme[PassiveTheme.SCOUTING]?.size || 0;
+  const fortuneCount = skillsByTheme[PassiveTheme.FORTUNE]?.size || 0;
+
+  // 1. Warfare -> Voluntad (Will): Brutal force in stance clashes (+4% Clash Win DMG per skill)
+  currentStats.clashWinDamageBonus = (currentStats.clashWinDamageBonus || 0) + (warfareCount * 4);
+  if (currentStats.activeSetBonuses.includes(PassiveTheme.WARFARE)) {
+    currentStats.clashWinDamageBonus += 15;
+  }
+
+  // 2. Sentinel -> Temple (Poise): Unyielding stance defense (+3% Mitig & +3% Parry per skill)
+  currentStats.clashDefendMitigationBonus = (currentStats.clashDefendMitigationBonus || 0) + (sentinelCount * 3);
+  currentStats.parryChanceBonus = (currentStats.parryChanceBonus || 0) + (sentinelCount * 3);
+  if (currentStats.activeSetBonuses.includes(PassiveTheme.SENTINEL)) {
+    currentStats.clashDefendMitigationBonus += 10;
+    currentStats.parryChanceBonus += 10;
+  }
+
+  // 3. Shadow -> Finta (Feint): Deceptive reflex upon stance failure (+4% Feint per skill)
+  currentStats.feintChanceBonus = (currentStats.feintChanceBonus || 0) + (shadowCount * 4);
+  if (currentStats.activeSetBonuses.includes(PassiveTheme.SHADOW)) {
+    currentStats.feintChanceBonus += 12;
+  }
+
+  // 4. Arcane -> Tactical Perception: Expanded decision timer (+150ms Action Timer per skill)
+  currentStats.actionTimerBonusMs = (currentStats.actionTimerBonusMs || 0) + (arcaneCount * 150);
+  if (currentStats.activeSetBonuses.includes(PassiveTheme.ARCANE)) {
+    currentStats.actionTimerBonusMs += 250;
+  }
+
+  // 5. Scouting -> Tactical Reflexes (+2% Parry, +2% Feint, +100ms Timer per skill)
+  currentStats.parryChanceBonus = (currentStats.parryChanceBonus || 0) + (scoutingCount * 2);
+  currentStats.feintChanceBonus = (currentStats.feintChanceBonus || 0) + (scoutingCount * 2);
+  currentStats.actionTimerBonusMs = (currentStats.actionTimerBonusMs || 0) + (scoutingCount * 100);
+  if (currentStats.activeSetBonuses.includes(PassiveTheme.SCOUTING)) {
+    currentStats.parryChanceBonus += 8;
+    currentStats.feintChanceBonus += 8;
+    currentStats.actionTimerBonusMs += 200;
+  }
+
+  // 6. Fortune -> Lucky Recovery (+2% Feint per skill)
+  currentStats.feintChanceBonus = (currentStats.feintChanceBonus || 0) + (fortuneCount * 2);
+  if (currentStats.activeSetBonuses.includes(PassiveTheme.FORTUNE)) {
+    currentStats.feintChanceBonus += 10;
+  }
+
+  // Composite Synergy Martial Triad Bonuses:
+  if (currentStats.activeSynergies.includes('spellblade')) {
+    currentStats.clashWinDamageBonus += 10;
+    currentStats.actionTimerBonusMs += 250;
+  }
+  if (currentStats.activeSynergies.includes('verdant_bulwark')) {
+    currentStats.clashDefendMitigationBonus += 8;
+    currentStats.parryChanceBonus += 8;
+  }
+  if (currentStats.activeSynergies.includes('shadow_stalker')) {
+    currentStats.feintChanceBonus += 10;
+    currentStats.parryChanceBonus += 5;
+  }
+  if (currentStats.activeSynergies.includes('dark_momentum')) {
+    currentStats.feintChanceBonus += 10;
+    currentStats.dodgeChance = Math.min(65, currentStats.dodgeChance + 5);
+  }
 
   Object.values(equipment).forEach(item => {
     if (!item || !Array.isArray(item.stats)) return;

@@ -233,6 +233,13 @@ export interface PlayerStats {
   equippedSkillIds: string[]; // Access to IDs for combat engine
   equippedItemProcs?: { id: string; name: string; proc: SkillProcDefinition }[];
   activeTitleId?: string; // Mastery Title currently granting its combat trigger
+  
+  // Martial Triad & Quick Reaction Integrations (Phase 4)
+  clashWinDamageBonus?: number; // % bonus damage upon winning Triad Stance Clash
+  clashDefendMitigationBonus?: number; // % bonus mitigation upon successfully defending with Triad Stance
+  feintChanceBonus?: number; // % bonus chance for Quick Reaction Feint recovery
+  parryChanceBonus?: number; // % bonus chance for Quick Reaction Parry deflection
+  actionTimerBonusMs?: number; // Extra milliseconds added to the player's tactical action timer
 }
 
 export type MaledictCategory = 'TRAIT' | 'INFAMY';

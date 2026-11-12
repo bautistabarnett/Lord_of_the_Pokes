@@ -2,7 +2,7 @@
 
 import { Rarity, ItemSlot, StatType, PassiveSkill, MapNode, ExplorationEvent, EventType, SmugglingBundle, PassiveTheme, PassiveSetBonus, MonsterRarity, MaledictAffix, SynergyDefinition, TerrainType } from './types';
 
-export const GAME_VERSION = 'v2.5';
+export const GAME_VERSION = 'v2.6';
 
 export const RARITY_COLORS = {
   [Rarity.COMMON]: 'text-stone-300', // White/Grey
@@ -478,7 +478,7 @@ export const PASSIVE_SKILLS_POOL: Omit<PassiveSkill, 'level' | 'value'>[] = [
   // Ultimate
   {
       id: 'time_dilation', name: 'Time Dilation', rarity: Rarity.UNIQUE,
-      description: 'Gain a massive burst of Agility (Dexterity) at the start of battle.',
+      description: 'Dilate combat flow: gain 100% Dodge and +400ms Action Timer at the start of battle.',
       theme: PassiveTheme.ARCANE, baseValue: 0, valuePerLevel: 0,
       tier: 4, maxRank: 1, prerequisiteId: 'arcane_power', treeX: 2,
       proc: {
@@ -699,7 +699,7 @@ export const PASSIVE_SET_BONUSES: PassiveSetBonus[] = [
     {
         theme: PassiveTheme.WARFARE,
         name: 'Warlord\'s Ascendancy',
-        description: 'Consecutive attacks build physical momentum (+8 Str stack). Grants +20 Damage and +15 Strength.',
+        description: 'Consecutive attacks build physical momentum (+8 Str stack). Voluntad stance triumphs deal +15% extra Clash Win damage. Grants +20 Damage and +15 Strength.',
         requiredCount: 3,
         staticStats: [
             { type: StatType.DAMAGE, value: 20 },
@@ -722,7 +722,7 @@ export const PASSIVE_SET_BONUSES: PassiveSetBonus[] = [
     {
         theme: PassiveTheme.SENTINEL,
         name: 'Iron Fortress',
-        description: 'When hit, 20% chance to Stun attacker and Regen HP. Grants +20 Vitality.',
+        description: 'When hit, 20% chance to Stun attacker and Regen HP. Defending in Temple stance gains +10% extra mitigation. Grants +20 Vitality.',
         requiredCount: 3,
         staticStats: [{ type: StatType.VITALITY, value: 20 }],
         triggerCondition: 'onTakeDamage',
@@ -732,7 +732,7 @@ export const PASSIVE_SET_BONUSES: PassiveSetBonus[] = [
     {
         theme: PassiveTheme.SHADOW,
         name: 'Assassin\'s Creed',
-        description: 'Applying Poison also Blinds. Crits against Poisoned deal +50% dmg. Grants +10% Crit Chance.',
+        description: 'Applying Poison also Blinds. Crits against Poisoned deal +50% dmg. Grants +12% Feint Chance and +10% Crit Chance.',
         requiredCount: 3,
         staticStats: [{ type: StatType.CRIT_CHANCE, value: 10 }],
         triggerCondition: 'onCrit',
@@ -742,7 +742,7 @@ export const PASSIVE_SET_BONUSES: PassiveSetBonus[] = [
     {
         theme: PassiveTheme.ARCANE,
         name: 'Arcane Singularity',
-        description: 'Strikes have 35% chance to erect an Arcane Shield (+45 Shield). Grants +25 Intelligence and +25 Armor.',
+        description: 'Strikes have 35% chance to erect an Arcane Shield (+45 Shield). Triumphs in Espíritu stance erect an instant Shield. Grants +25 Intelligence and +25 Armor.',
         requiredCount: 3,
         staticStats: [
             { type: StatType.INTELLIGENCE, value: 25 },
@@ -755,7 +755,7 @@ export const PASSIVE_SET_BONUSES: PassiveSetBonus[] = [
     {
         theme: PassiveTheme.FORTUNE,
         name: 'Jackpot',
-        description: 'Critical Hits grant massive Crit Boost (+100% Crit Dmg next turn). Grants +50 Magic Find.',
+        description: 'Critical Hits grant massive Crit Boost (+100% Crit Dmg next turn). Grants +50 Magic Find and +10% Feint Chance.',
         requiredCount: 3,
         staticStats: [{ type: StatType.MAGIC_FIND, value: 50 }],
         triggerCondition: 'onCrit',
@@ -778,7 +778,7 @@ export const PASSIVE_SET_BONUSES: PassiveSetBonus[] = [
     {
         theme: PassiveTheme.SCOUTING,
         name: 'Vantage Point',
-        description: 'Critical Hits trigger lethal focus (+50% Crit Boost next attack). Grants +12% Crit and +10% Dodge.',
+        description: 'Critical Hits trigger lethal focus (+50% Crit Boost next attack). Grants +8% Parry & Feint, +12% Crit and +10% Dodge.',
         requiredCount: 3,
         staticStats: [
             { type: StatType.CRIT_CHANCE, value: 12 },
@@ -812,7 +812,7 @@ export const COMPOSITE_SYNERGIES: SynergyDefinition[] = [
         id: 'dark_momentum',
         name: 'Dark Momentum',
         themes: [PassiveTheme.SHADOW, PassiveTheme.FORTUNE],
-        description: 'Crits grant +35% Dodge and accelerated Quick Reaction reflexes.',
+        description: 'Crits grant +35% Dodge, +10% Feint chance, and accelerated Quick Reaction reflexes.',
         effect: { trigger: 'onCrit', type: 'synergy_buff', value: 1.5 },
         requiredCountPerTheme: 2
     },
@@ -820,7 +820,7 @@ export const COMPOSITE_SYNERGIES: SynergyDefinition[] = [
         id: 'spellblade',
         name: 'Spellblade',
         themes: [PassiveTheme.WARFARE, PassiveTheme.ARCANE],
-        description: 'Physical strikes channel raw ether, detonating a 150% Spell Power burst on impact.',
+        description: 'Physical strikes and Triad triumphs channel raw ether, detonating a 150% Spell Power burst on impact. Grants +10% Clash Win DMG and +250ms Action Timer.',
         effect: { trigger: 'onHit', type: 'synergy_burst', value: 1.5 },
         requiredCountPerTheme: 2
     },
@@ -828,7 +828,7 @@ export const COMPOSITE_SYNERGIES: SynergyDefinition[] = [
         id: 'verdant_bulwark',
         name: 'Verdant Bulwark',
         themes: [PassiveTheme.SENTINEL, PassiveTheme.NATURE],
-        description: 'Being hit hardens living bark, restoring health and returning +25% Thorns damage.',
+        description: 'Being hit hardens living bark, restoring health and returning +25% Thorns damage. Defending with Temple stance triggers thorns retribution.',
         effect: { trigger: 'onTakeDamage', type: 'synergy_debuff', value: 0.15 },
         requiredCountPerTheme: 2
     },
@@ -836,7 +836,7 @@ export const COMPOSITE_SYNERGIES: SynergyDefinition[] = [
         id: 'shadow_stalker',
         name: 'Shadow Stalker',
         themes: [PassiveTheme.SHADOW, PassiveTheme.SCOUTING],
-        description: 'Crits expose enemy blind spots, granting guaranteed Crit Boost and +20% Dodge.',
+        description: 'Crits expose enemy blind spots, granting guaranteed Crit Boost and +20% Dodge. Feint chance +10%, and successful Feints guarantee a Critical Strike.',
         effect: { trigger: 'onCrit', type: 'synergy_buff', value: 1.3 },
         requiredCountPerTheme: 2
     }

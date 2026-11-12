@@ -198,14 +198,21 @@ export const HeroCombatStatsModal: React.FC<HeroCombatStatsModalProps> = ({
           </div>
 
           <div className="bg-stone-900/60 border border-stone-800 rounded p-2 col-span-2 sm:col-span-3">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-1">
               <span className="text-[10px] text-amber-400 uppercase font-bold flex items-center gap-1">
                 <span>🤺</span> Reacción Rápida: {playerStats.attackSpeed || 0}%
               </span>
-              <span className="text-[10px] text-stone-400">
-                🗡️ Parry: <strong className="text-cyan-400">{Math.min(50, Math.round((playerStats.attackSpeed || 0) * 1.0))}%</strong> (-35% dmg) • 🤺 Finta: <strong className="text-amber-300">{Math.min(35, Math.round((playerStats.attackSpeed || 0) * 0.6))}%</strong> (100% hit)
+              <span className="text-[10px] text-stone-300">
+                🗡️ Parry: <strong className="text-cyan-400">{Math.min(75, Math.round((playerStats.attackSpeed || 0) * 1.0) + (playerStats.parryChanceBonus || 0))}%</strong> (-35% dmg) • 🤺 Finta: <strong className="text-amber-300">{Math.min(65, Math.round((playerStats.attackSpeed || 0) * 0.6) + (playerStats.feintChanceBonus || 0))}%</strong> (100% hit)
               </span>
             </div>
+            {((playerStats.clashWinDamageBonus || 0) > 0 || (playerStats.clashDefendMitigationBonus || 0) > 0 || (playerStats.actionTimerBonusMs || 0) > 0) && (
+              <div className="mt-1 pt-1 border-t border-stone-800/80 flex items-center justify-between text-[9px] font-mono text-stone-400">
+                <span className="text-yellow-400">⚡ Triad Clash Win: +{playerStats.clashWinDamageBonus || 0}% DMG</span>
+                <span className="text-emerald-400">🛡️ Defend Mitig: +{playerStats.clashDefendMitigationBonus || 0}%</span>
+                <span className="text-blue-400">⏱️ Action Timer: +{playerStats.actionTimerBonusMs || 0}ms</span>
+              </div>
+            )}
           </div>
         </div>
 

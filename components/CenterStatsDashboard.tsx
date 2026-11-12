@@ -68,8 +68,8 @@ export const CenterStatsDashboard: React.FC<CenterStatsDashboardProps> = ({
     [stats, baseAttributes]
   );
 
-  const parryPct = Math.min(50, Math.round((stats.attackSpeed || 0) * 1.0));
-  const feintPct = Math.min(35, Math.round((stats.attackSpeed || 0) * 0.6));
+  const parryPct = Math.min(75, Math.round((stats.attackSpeed || 0) * 1.0) + (stats.parryChanceBonus || 0));
+  const feintPct = Math.min(65, Math.round((stats.attackSpeed || 0) * 0.6) + (stats.feintChanceBonus || 0));
 
   const combatStats = useMemo(
     () => [
@@ -83,6 +83,13 @@ export const CenterStatsDashboard: React.FC<CenterStatsDashboardProps> = ({
         icon: '🤺', 
         color: 'text-amber-400', 
         extra: `(P:${parryPct}% / F:${feintPct}%)` 
+      },
+      { 
+        label: 'Choque Tríada', 
+        val: `+${stats.clashWinDamageBonus || 0}%`, 
+        icon: '⚡', 
+        color: 'text-yellow-400', 
+        extra: `Def: +${stats.clashDefendMitigationBonus || 0}%` 
       },
       { label: 'Spell Power', val: `+${stats.spellPower || 0}%`, icon: '🔮', color: 'text-stone-200' },
       { label: 'Crit Chance', val: `${stats.critChance}%`, icon: '⚡', color: 'text-stone-200' },
