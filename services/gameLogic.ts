@@ -347,6 +347,7 @@ export const generateEncounter = (level: number, difficulty: number, terrain: Te
 };
 
 // Updated generator to allow targetted rarity filtering
+// Updated generator to allow targetted rarity filtering with prerequisite validation and maxRank protection
 export const generatePassiveSkill = (
     currentPassives: PassiveSkill[], 
     filters?: { 
@@ -376,13 +377,48 @@ export const generatePassiveSkill = (
   // Fallback if pool empty (shouldn't happen unless bad filters)
   if (pool.length === 0) pool = PASSIVE_SKILLS_POOL.filter(s => s.rarity === Rarity.COMMON);
 
-  const poolItem = getRandomElement(pool);
+  // Progressive Tree & MaxRank Filtering:
+  // 1. Existing skills can only be selected if not yet at maxRank.
+  // 2. New skills can only be selected if prerequisite is met (or skill has no prereq).
+  const eligiblePool = pool.filter(poolItem => {
+      const existing = currentPassives.find(p => p.id === poolItem.id);
+      const maxRank = existing ? (existing.maxRank || poolItem.maxRank || 10) : (poolItem.maxRank || 10);
+      
+      if (existing) {
+          return existing.level < maxRank;
+      }
+      
+      if (poolItem.prerequisiteId) {
+          return currentPassives.some(p => p.id === poolItem.prerequisiteId);
+      }
+      
+      return true;
+  });
+
+  // Fallback 1: any skill from pool not yet maxed.
+  const nonMaxedPool = pool.filter(s => {
+      const ex = currentPassives.find(p => p.id === s.id);
+      const mr = ex ? (ex.maxRank || s.maxRank || 10) : (s.maxRank || 10);
+      return !ex || ex.level < mr;
+  });
+
+  // Final fallback to raw pool if everything in game is maxed!
+  const finalPool = eligiblePool.length > 0 
+      ? eligiblePool 
+      : (nonMaxedPool.length > 0 ? nonMaxedPool : pool);
+
+  const poolItem = getRandomElement(finalPool);
   const existing = currentPassives.find(p => p.id === poolItem.id);
 
   if (existing) {
-    const nextLevel = existing.level + 1;
+    const maxRank = existing.maxRank || poolItem.maxRank || 10;
+    const nextLevel = Math.min(maxRank, existing.level + 1);
     return {
-      skill: { ...existing, level: nextLevel, value: existing.baseValue + (nextLevel - 1) * existing.valuePerLevel },
+      skill: { 
+        ...existing, 
+        level: nextLevel, 
+        value: existing.baseValue + (nextLevel - 1) * existing.valuePerLevel 
+      },
       isNew: false
     };
   } else {
@@ -483,10 +519,14 @@ export const calculatePlayerStats = (
       }
   });
 
-  // Calculate Composite Synergies
+  // Calculate Composite Synergies (Flexible Threshold: 2+ equipped skills per theme)
   COMPOSITE_SYNERGIES.forEach(synergy => {
-      if (currentStats.activeSetBonuses.includes(synergy.themes[0]) && 
-          currentStats.activeSetBonuses.includes(synergy.themes[1])) {
+      const count1 = skillsByTheme[synergy.themes[0]]?.size || 0;
+      const count2 = skillsByTheme[synergy.themes[1]]?.size || 0;
+      const reqPerTheme = synergy.requiredCountPerTheme || 2;
+      
+      if ((count1 >= reqPerTheme && count2 >= reqPerTheme) ||
+          (currentStats.activeSetBonuses.includes(synergy.themes[0]) && currentStats.activeSetBonuses.includes(synergy.themes[1]))) {
           currentStats.activeSynergies.push(synergy.id);
       }
   });

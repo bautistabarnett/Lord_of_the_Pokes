@@ -2,7 +2,7 @@
 
 import { Rarity, ItemSlot, StatType, PassiveSkill, MapNode, ExplorationEvent, EventType, SmugglingBundle, PassiveTheme, PassiveSetBonus, MonsterRarity, MaledictAffix, SynergyDefinition, TerrainType } from './types';
 
-export const GAME_VERSION = 'v2.4';
+export const GAME_VERSION = 'v2.5';
 
 export const RARITY_COLORS = {
   [Rarity.COMMON]: 'text-stone-300', // White/Grey
@@ -756,7 +756,7 @@ export const PASSIVE_SET_BONUSES: PassiveSetBonus[] = [
         theme: PassiveTheme.FORTUNE,
         name: 'Jackpot',
         description: 'Critical Hits grant massive Crit Boost (+100% Crit Dmg next turn). Grants +50 Magic Find.',
-        requiredCount: 2,
+        requiredCount: 3,
         staticStats: [{ type: StatType.MAGIC_FIND, value: 50 }],
         triggerCondition: 'onCrit',
         procChance: 0.3,
@@ -797,42 +797,48 @@ export const COMPOSITE_SYNERGIES: SynergyDefinition[] = [
         name: 'Frostburn',
         themes: [PassiveTheme.PYROMANCY, PassiveTheme.CRYOMANCY],
         description: 'Hitting Chilled enemies with Fire causes a Steam Explosion (Instant Dmg).',
-        effect: { trigger: 'onHit', type: 'synergy_burst', value: 2.0 } // 200% DMG burst
+        effect: { trigger: 'onHit', type: 'synergy_burst', value: 2.0 }, // 200% DMG burst
+        requiredCountPerTheme: 2
     },
     {
         id: 'biohazard',
         name: 'Biohazard',
         themes: [PassiveTheme.SHADOW, PassiveTheme.SENTINEL],
         description: 'Being hit retaliates with Poison, and attacks deal +20% damage against poisoned enemies.',
-        effect: { trigger: 'onTakeDamage', type: 'synergy_debuff', value: 0.1 }
+        effect: { trigger: 'onTakeDamage', type: 'synergy_debuff', value: 0.1 },
+        requiredCountPerTheme: 2
     },
     {
         id: 'dark_momentum',
         name: 'Dark Momentum',
         themes: [PassiveTheme.SHADOW, PassiveTheme.FORTUNE],
         description: 'Crits grant +35% Dodge and accelerated Quick Reaction reflexes.',
-        effect: { trigger: 'onCrit', type: 'synergy_buff', value: 1.5 }
+        effect: { trigger: 'onCrit', type: 'synergy_buff', value: 1.5 },
+        requiredCountPerTheme: 2
     },
     {
         id: 'spellblade',
         name: 'Spellblade',
         themes: [PassiveTheme.WARFARE, PassiveTheme.ARCANE],
         description: 'Physical strikes channel raw ether, detonating a 150% Spell Power burst on impact.',
-        effect: { trigger: 'onHit', type: 'synergy_burst', value: 1.5 }
+        effect: { trigger: 'onHit', type: 'synergy_burst', value: 1.5 },
+        requiredCountPerTheme: 2
     },
     {
         id: 'verdant_bulwark',
         name: 'Verdant Bulwark',
         themes: [PassiveTheme.SENTINEL, PassiveTheme.NATURE],
         description: 'Being hit hardens living bark, restoring health and returning +25% Thorns damage.',
-        effect: { trigger: 'onTakeDamage', type: 'synergy_debuff', value: 0.15 }
+        effect: { trigger: 'onTakeDamage', type: 'synergy_debuff', value: 0.15 },
+        requiredCountPerTheme: 2
     },
     {
         id: 'shadow_stalker',
         name: 'Shadow Stalker',
         themes: [PassiveTheme.SHADOW, PassiveTheme.SCOUTING],
         description: 'Crits expose enemy blind spots, granting guaranteed Crit Boost and +20% Dodge.',
-        effect: { trigger: 'onCrit', type: 'synergy_buff', value: 1.3 }
+        effect: { trigger: 'onCrit', type: 'synergy_buff', value: 1.3 },
+        requiredCountPerTheme: 2
     }
 ];
 

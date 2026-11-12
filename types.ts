@@ -169,7 +169,8 @@ export interface SynergyDefinition {
         trigger: CombatTrigger;
         type: 'synergy_burst' | 'synergy_buff' | 'synergy_debuff';
         value: number;
-    }
+    };
+    requiredCountPerTheme?: number; // Minimum equipped skills per theme (defaults to 2)
 }
 
 export interface CombatStatusEffect {

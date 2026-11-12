@@ -801,8 +801,11 @@ const SkillsModal: React.FC<SkillsModalProps> = ({
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                             {COMPOSITE_SYNERGIES.map(synergy => {
                                 const isActive = playerStats.activeSynergies?.includes(synergy.id);
-                                const theme1Active = playerStats.activeSetBonuses?.includes(synergy.themes[0]);
-                                const theme2Active = playerStats.activeSetBonuses?.includes(synergy.themes[1]);
+                                const reqCount = synergy.requiredCountPerTheme || 2;
+                                const count1 = passiveSkills.filter(s => s.theme === synergy.themes[0] && equippedSkillIds.includes(s.id)).length;
+                                const count2 = passiveSkills.filter(s => s.theme === synergy.themes[1] && equippedSkillIds.includes(s.id)).length;
+                                const theme1Ready = count1 >= reqCount;
+                                const theme2Ready = count2 >= reqCount;
 
                                 return (
                                     <div 
@@ -833,12 +836,12 @@ const SkillsModal: React.FC<SkillsModalProps> = ({
                                         </div>
 
                                         <div className="pt-2 border-t border-stone-800/80 flex items-center justify-between text-[10px] font-mono">
-                                            <span className={theme1Active ? 'text-amber-400 font-bold' : 'text-stone-500'}>
-                                                {synergy.themes[0]} {theme1Active ? '✓' : '✗'}
+                                            <span className={theme1Ready ? 'text-purple-400 font-bold' : 'text-stone-400'}>
+                                                {synergy.themes[0]} ({count1}/{reqCount}) {theme1Ready ? '✓' : ''}
                                             </span>
                                             <span className="text-stone-600">+</span>
-                                            <span className={theme2Active ? 'text-amber-400 font-bold' : 'text-stone-500'}>
-                                                {synergy.themes[1]} {theme2Active ? '✓' : '✗'}
+                                            <span className={theme2Ready ? 'text-purple-400 font-bold' : 'text-stone-400'}>
+                                                {synergy.themes[1]} ({count2}/{reqCount}) {theme2Ready ? '✓' : ''}
                                             </span>
                                         </div>
                                     </div>
