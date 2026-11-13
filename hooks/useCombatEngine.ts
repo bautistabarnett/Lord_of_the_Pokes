@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Monster, PlayerStats, CombatStatusEffect, ActiveEffect, CombatStance, CombatTrigger, LogEntry, TerrainType, PassiveSkill, InfamyRuntimeState, MaledictAffix } from '../types';
+import { Monster, PlayerStats, CombatStatusEffect, ActiveEffect, CombatStance, CombatTrigger, LogEntry, TerrainType, PassiveSkill, InfamyRuntimeState, MaledictAffix, PassiveTheme } from '../types';
 import { COMPOSITE_SYNERGIES, PASSIVE_SET_BONUSES, PASSIVE_SKILLS_POOL } from '../constants';
 import { BALANCE, resolveTriadClash, STANCE_META, TriadClashResult } from '../services/gameBalance';
 
@@ -69,6 +69,15 @@ export const useCombatEngine = ({
   environment
 }: UseCombatEngineProps) => {
   const [isFighting, setIsFighting] = useState(false);
+  const isFightingRef = useRef<boolean>(false);
+  useEffect(() => {
+    isFightingRef.current = isFighting;
+  }, [isFighting]);
+
+  const [turnStep, setTurnStep] = useState<number>(1);
+  const isResolvingTurnRef = useRef<boolean>(false);
+  const turnStartTimeRef = useRef<number>(Date.now());
+
   const [activeMonsters, setActiveMonsters] = useState<Monster[]>([]);
   const [combatLog, setCombatLog] = useState<string[]>([]);
   const [turnQueue, setTurnQueue] = useState<('player' | 'enemy')[]>([]);
@@ -218,9 +227,13 @@ export const useCombatEngine = ({
     activeMonstersRef.current = monsters;
     setPlayerHp(playerStats.maxHp);
     playerHpRef.current = playerStats.maxHp;
+    isFightingRef.current = true;
+    isResolvingTurnRef.current = false;
+    turnStartTimeRef.current = Date.now();
+    setTurnStep(1);
     
-    // V2 Triad Combat Rule: Player always takes the first turn, followed by strictly alternating 1:1 turns
-    setTurnQueue(generateTurnBatch(1, 1, 'player'));
+    // V2 Triad Combat Rule: Player always takes the first turn, prefill deep queue (6 turns)
+    setTurnQueue([...generateTurnBatch(1, 1, 'player'), ...generateTurnBatch(1, 1, 'player')]);
     
     if (monsters.length > 1) {
         addToCombatLog(`Encountered a group of ${monsters.length} enemies!`);
@@ -903,30 +916,33 @@ export const useCombatEngine = ({
     const monsterMitigationPercent = BALANCE.COMBAT.calculateMitigationPercent(effectiveMonsterArmor, targetMonster.level);
     let dmg = Math.max(1, Math.floor(rawDmg * (1 - monsterMitigationPercent)));
     
+    const updatedMonsters = [...activeMonstersRef.current];
+
     if (isShielded) {
         dmg = 0;
         addToCombatLog(`🚫 Blocked by ${targetMonster.name}'s Shield!`);
         setCombatStatusEffects(prev => prev.filter(e => !(e.target === 'enemy' && (e as any).targetId === targetMonster.id && e.type === 'shield')));
+        updatedMonsters[targetIndex] = { ...targetMonster, currentHp: monsterHp };
     } else {
         // Cleave / Splash Damage on Overkill: 50% of overkill transfers to next living monster
         const overkill = dmg - monsterHp;
         monsterHp = Math.max(0, monsterHp - dmg);
+        updatedMonsters[targetIndex] = { ...targetMonster, currentHp: monsterHp };
 
-        const currentMonsters = [...activeMonstersRef.current];
-
-        if (overkill > 0 && currentMonsters.length > 1) {
-            const nextTargetIdx = currentMonsters.findIndex((m, i) => i !== targetIndex && m.currentHp > 0);
+        if (overkill > 0 && updatedMonsters.length > 1) {
+            const nextTargetIdx = updatedMonsters.findIndex((m, i) => i !== targetIndex && m.currentHp > 0);
             if (nextTargetIdx >= 0) {
                 const splashDmg = Math.max(1, Math.floor(overkill * 0.5));
-                const splashTarget = currentMonsters[nextTargetIdx];
+                const splashTarget = updatedMonsters[nextTargetIdx];
                 const splashRemainingHp = Math.max(0, splashTarget.currentHp - splashDmg);
-                currentMonsters[nextTargetIdx] = { ...splashTarget, currentHp: splashRemainingHp };
+                updatedMonsters[nextTargetIdx] = { ...splashTarget, currentHp: splashRemainingHp };
                 addToCombatLog(`💥 Cleave! Overkill deals ${splashDmg} splash dmg to ${splashTarget.name}!`);
             }
         }
 
         const onHitDmg = processTriggers('onHit', 'player', dmg, targetIndex);
         monsterHp = Math.max(0, monsterHp - onHitDmg);
+        updatedMonsters[targetIndex] = { ...targetMonster, currentHp: monsterHp };
         
         if (isCrit) {
             addToCombatLog(`CRITICAL! ${targetMonster.name} takes ${dmg}!`);
@@ -965,15 +981,13 @@ export const useCombatEngine = ({
         }
     }
 
-    // Update active monsters state
-    const nextMonsters = [...activeMonstersRef.current];
-    nextMonsters[targetIndex] = { ...targetMonster, currentHp: monsterHp };
-    activeMonstersRef.current = nextMonsters;
-    setActiveMonsters(nextMonsters);
+    // Update active monsters state with preserved cleave splash damage
+    activeMonstersRef.current = updatedMonsters;
+    setActiveMonsters(updatedMonsters);
 
-    if (nextMonsters.every(m => m.currentHp <= 0)) {
+    if (updatedMonsters.every(m => m.currentHp <= 0)) {
         processTriggers('onKill', 'player');
-        handleVictoryInternal(nextMonsters);
+        handleVictoryInternal(updatedMonsters);
     }
   };
 
@@ -1138,7 +1152,7 @@ export const useCombatEngine = ({
               }
           }
 
-          if (monster.lifeSteal > 0 && final > 0) {
+          if (workingMonsters[mIdx].currentHp > 0 && monster.lifeSteal > 0 && final > 0) {
               const heal = Math.floor(final * (monster.lifeSteal/100));
               workingMonsters[mIdx] = { ...workingMonsters[mIdx], currentHp: Math.min(workingMonsters[mIdx].maxHp, workingMonsters[mIdx].currentHp + heal) };
           }
@@ -1172,6 +1186,18 @@ export const useCombatEngine = ({
   };
 
   const handleVictoryInternal = (monsters: Monster[]) => {
+     isFightingRef.current = false;
+     activeMonstersRef.current = [];
+     if (actionIntervalRef.current) {
+       clearInterval(actionIntervalRef.current);
+       actionIntervalRef.current = null;
+     }
+     if (turnTimeoutRef.current) {
+       clearTimeout(turnTimeoutRef.current);
+       turnTimeoutRef.current = null;
+     }
+     setActionTimerProgress(0);
+     setIsChronobreakerActive(false);
      onVictory(monsters);
      setIsFighting(false);
      setActiveMonsters([]);
@@ -1181,6 +1207,18 @@ export const useCombatEngine = ({
   };
 
   const handleDefeatInternal = () => {
+      isFightingRef.current = false;
+      activeMonstersRef.current = [];
+      if (actionIntervalRef.current) {
+        clearInterval(actionIntervalRef.current);
+        actionIntervalRef.current = null;
+      }
+      if (turnTimeoutRef.current) {
+        clearTimeout(turnTimeoutRef.current);
+        turnTimeoutRef.current = null;
+      }
+      setActionTimerProgress(0);
+      setIsChronobreakerActive(false);
       onDefeat();
       setIsFighting(false);
       setActiveMonsters([]);
@@ -1191,14 +1229,65 @@ export const useCombatEngine = ({
 
   const handleFlee = () => { 
       if (Math.random() < 0.5) { 
+          isFightingRef.current = false; 
+          activeMonstersRef.current = [];
+          if (actionIntervalRef.current) {
+            clearInterval(actionIntervalRef.current);
+            actionIntervalRef.current = null;
+          }
+          if (turnTimeoutRef.current) {
+            clearTimeout(turnTimeoutRef.current);
+            turnTimeoutRef.current = null;
+          }
+          setActionTimerProgress(0);
+          setIsChronobreakerActive(false);
           setIsFighting(false); 
           setActiveMonsters([]); 
           setTurnQueue([]); 
           addLog("Escaped!", 'combat'); 
       } else { 
           addToCombatLog("Failed to escape!"); 
-          setTurnQueue(p => p.slice(1)); 
+          advanceCombatTurn(() => {}); 
       } 
+  };
+
+  // Atomic Turn Advancement Guard (Shields against race conditions, exceptions, and freezes)
+  const advanceCombatTurn = (action: () => void) => {
+    if (!isFightingRef.current) return;
+    if (isResolvingTurnRef.current) return;
+    isResolvingTurnRef.current = true;
+
+    if (actionIntervalRef.current) {
+      clearInterval(actionIntervalRef.current);
+      actionIntervalRef.current = null;
+    }
+    if (turnTimeoutRef.current) {
+      clearTimeout(turnTimeoutRef.current);
+      turnTimeoutRef.current = null;
+    }
+    setActionTimerProgress(0);
+    setIsChronobreakerActive(false);
+
+    try {
+      action();
+    } catch (err) {
+      console.error("[Combat Engine] Error in combat turn resolution:", err);
+    } finally {
+      if (isFightingRef.current && activeMonstersRef.current.some(m => m.currentHp > 0)) {
+        setTurnQueue(prev => {
+          const next = prev.length > 0 ? prev.slice(1) : [];
+          if (next.length < 4) {
+            const lastActor = next.length > 0 ? next[next.length - 1] : 'enemy';
+            const nextStart = lastActor === 'player' ? 'enemy' : 'player';
+            return [...next, ...generateTurnBatch(1, 1, nextStart)];
+          }
+          return next;
+        });
+        setTurnStep(s => s + 1);
+        turnStartTimeRef.current = Date.now();
+      }
+      isResolvingTurnRef.current = false;
+    }
   };
 
   // Helper to run action timer countdown for player
@@ -1220,10 +1309,7 @@ export const useCombatEngine = ({
       if (currentRemaining <= 0) {
         clearInterval(actionIntervalRef.current);
         actionIntervalRef.current = null;
-        setActionTimerProgress(0);
-        setIsChronobreakerActive(false);
-        resolveCombatTurn(combatStanceRef.current);
-        setTurnQueue(prev => prev.slice(1));
+        advanceCombatTurn(() => resolveCombatTurn(combatStanceRef.current));
       }
     }, 50);
   };
@@ -1238,13 +1324,12 @@ export const useCombatEngine = ({
     enemyRemainingDelayMsRef.current = delayMs;
 
     turnTimeoutRef.current = setTimeout(() => {
-      if (!isFighting || isCombatPausedRef.current) return;
-      executeEnemyTurn();
-      setTurnQueue(prev => prev.slice(1));
+      if (!isFightingRef.current || isCombatPausedRef.current) return;
+      advanceCombatTurn(() => executeEnemyTurn());
     }, delayMs);
   };
 
-  // --- COMBAT LOOP WITH ACTION TIMER ---
+  // --- COMBAT LOOP WITH ACTION TIMER & STEP ADVANCEMENT ---
   useEffect(() => {
     if (!isFighting || activeMonstersRef.current.length === 0 || !playerStats) {
       if (actionIntervalRef.current) {
@@ -1259,17 +1344,44 @@ export const useCombatEngine = ({
       return;
     }
 
-    if (turnQueue.length === 0) return;
+    if (turnQueue.length === 0) {
+      if (activeMonstersRef.current.some(m => m.currentHp > 0)) {
+        setTurnQueue(generateTurnBatch(1, 1, 'player'));
+      }
+      return;
+    }
 
     const currentActor = turnQueue[0];
     const isPlayer = currentActor === 'player';
     setIsPlayerTurn(isPlayer);
+    turnStartTimeRef.current = Date.now();
 
     if (isPlayer) {
       const nextTurn = turnCount + 1;
       setTurnCount(nextTurn);
       turnInfamyTriggeredRef.current = false;
       checkInfamyExpirations(nextTurn);
+
+      // Fast-forward Stunned / Frozen Hero with clear status logging (no 4.5s hang)
+      const isFrozen = combatStatusEffects.some(e => e.target === 'player' && (e.type === 'freeze' || e.type === 'stun'));
+      if (isFrozen) {
+        addToCombatLog("💫 You are Frozen/Stunned and cannot act!");
+        setActionTimerProgress(0);
+        turnTimeoutRef.current = setTimeout(() => {
+          advanceCombatTurn(() => {
+            const hpAfterDot = (processCombatEffects('player') as number) ?? playerHpRef.current;
+            if (hpAfterDot <= 0) {
+              handleDefeatInternal();
+            }
+          });
+        }, 600);
+        return () => {
+          if (turnTimeoutRef.current) {
+            clearTimeout(turnTimeoutRef.current);
+            turnTimeoutRef.current = null;
+          }
+        };
+      }
 
       // Attempt to trigger onPlayerTurnStart Infamia (Chronobreaker or Trickster)
       const triggered = tryTriggerInfamy('onPlayerTurnStart');
@@ -1324,6 +1436,39 @@ export const useCombatEngine = ({
         }
       };
     }
+  }, [isFighting, turnStep]);
+
+  // --- COMBAT WATCHDOG & FAILSAFE ---
+  useEffect(() => {
+    if (!isFighting) return;
+
+    const watchdogInterval = setInterval(() => {
+      if (!isFightingRef.current || isCombatPausedRef.current) return;
+      const now = Date.now();
+
+      // 1. Guard against empty turn queue during active fight
+      if (turnQueue.length === 0 && activeMonstersRef.current.some(m => m.currentHp > 0)) {
+        console.warn("[Combat Watchdog] Empty turn queue detected during active combat. Auto-recovering...");
+        setTurnQueue(generateTurnBatch(1, 1, 'player'));
+        setTurnStep(s => s + 1);
+        turnStartTimeRef.current = now;
+        return;
+      }
+
+      // 2. Guard against stalled turn (> 6.5 seconds without progress)
+      const turnElapsed = now - turnStartTimeRef.current;
+      if (turnElapsed > 6500 && !isResolvingTurnRef.current) {
+        console.warn(`[Combat Watchdog] Turn stalled for ${turnElapsed}ms. Forcing turn progression...`);
+        const actor = turnQueue[0] || 'player';
+        if (actor === 'player') {
+          advanceCombatTurn(() => resolveCombatTurn(combatStanceRef.current));
+        } else {
+          advanceCombatTurn(() => executeEnemyTurn());
+        }
+      }
+    }, 1000);
+
+    return () => clearInterval(watchdogInterval);
   }, [isFighting, turnQueue]);
 
   // Pause / Resume API (Pauses battle when Codex or Inspector is open)
@@ -1353,6 +1498,7 @@ export const useCombatEngine = ({
     const pauseDuration = Math.max(0, Date.now() - pausedAtRef.current);
     isCombatPausedRef.current = false;
     setIsCombatPaused(false);
+    turnStartTimeRef.current += pauseDuration;
 
     // Shift Infamias ready timestamps so time spent paused in Codex doesn't burn cooldowns
     if (pauseDuration > 0) {
@@ -1386,19 +1532,14 @@ export const useCombatEngine = ({
 
   // Direct Stance Trigger (Player clicks one of the triad buttons during action timer)
   const executeStanceAction = useCallback((chosenStance: CombatStance) => {
-    if (isCombatPausedRef.current) return;
+    if (isCombatPausedRef.current || isResolvingTurnRef.current || !isFightingRef.current) return;
 
     setCombatStance(chosenStance);
     combatStanceRef.current = chosenStance;
 
-    // If it's the player's active turn and timer is running, resolve immediately!
-    if (isPlayerTurn && actionIntervalRef.current) {
-      clearInterval(actionIntervalRef.current);
-      actionIntervalRef.current = null;
-      setActionTimerProgress(0);
-      setIsChronobreakerActive(false);
-      resolveCombatTurn(chosenStance);
-      setTurnQueue(prev => prev.slice(1));
+    // If it's the player's active turn, resolve immediately!
+    if (isPlayerTurn) {
+      advanceCombatTurn(() => resolveCombatTurn(chosenStance));
     }
   }, [isPlayerTurn]);
 
